@@ -1,0 +1,549 @@
+name: ${PROJECT_NAME}
+
+x-prodigy-common: &prodigy-common
+  source: prodigy
+  target: /app/appsettings.${ENVIRONMENT}.json
+
+x-xosp-common: &xosp-common
+  restart: on-failure:5
+  networks:
+    - internal
+
+x-xosp-depends-dbredis: &xosp-depends-dbredis
+  depends_on:
+    - postgres
+    - redis
+
+x-xosp-depends-db: &xosp-depends-db
+  depends_on:
+    - postgres
+
+x-xosp-certificate: &xosp-certificate
+  entrypoint: /startup/start.sh # We need to re-supply the command in each service that uses this, as sadly this clears it, and command: null does not restore it
+  secrets:
+    - certificate.crt
+
+services:
+  arclight:
+    <<: *xosp-common
+    image: ${DOCKER_REGISTRY}arclight-nginx:${DOCKER_VERSION}
+    volumes:
+      - ./Branding/Common:/app/branding
+    configs:
+      - source: arclight
+        target: /app/config/config.json
+
+  audit:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
+    image: ${DOCKER_REGISTRY}audit-restapi:${DOCKER_VERSION}
+    command: Paritech.Audit.RestAPI.dll
+    environment:
+      - AUDIT_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Audit:/usr/share/Paritech/Audit
+      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: audit
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  auth:
+    <<: *xosp-common
+    image: ${DOCKER_REGISTRY}authserver:${DOCKER_VERSION}
+    entrypoint: /startup/start.sh
+    command: Paritech.AuthServer.dll
+    environment:
+      - AUTH_ENVIRONMENT=${ENVIRONMENT}
+      - AUTH_FORWARDEDHEADERS_ENABLED=True # Disables the KnownProxies check that only allows loopback proxies - we're coming from a separate docker container
+    volumes:
+      - ${SHARED_DATA}/AuthServer:/usr/share/Paritech/AuthServer
+      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: auth
+        target: /app/appsettings.${ENVIRONMENT}.json
+    secrets:
+      - certificate.pfx # ASP.Net needs the certificate to respond internally to SSL requests for client tokens
+      - certificate.crt # OS needs the certificate to allow SSL health checks
+    networks:
+      internal:
+        # Our external DNS address won't resolve from inside the Docker network until the user adds it to a hosts file, so we add an alias to ensure everything works during install
+        aliases:
+          - ${TOKEN_AUTHORITY}
+
+  expo:
+    <<: [*xosp-common, *xosp-certificate]
+    image: ${DOCKER_REGISTRY}expo-web:${DOCKER_VERSION}
+    command: MotifMarkets.Expo.Web.dll
+    environment:
+      - EXPO_ENVIRONMENT=${ENVIRONMENT}
+      - EXPO_FORWARDEDHEADERS_ENABLED=True # Disables the KnownProxies check that only allows loopback proxies - we're coming from a separate docker container
+    volumes:
+      - ${SHARED_DATA}/Expo:/usr/share/Paritech/Expo
+      - ./Startup:/startup:ro
+    configs:
+      - source: expo
+        target: /app/appsettings.${ENVIRONMENT}.json
+    depends_on:
+      - zenith
+
+  # Foundry Registry Services
+  foundry.admin:
+    <<: [*xosp-common, *xosp-certificate]
+    image: ${DOCKER_REGISTRY}foundry-adminportal:${DOCKER_VERSION}
+    command: Paritech.Foundry.AdminPortal.dll
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ENVIRONMENT}
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=True # Disables the KnownProxies check that only allows loopback proxies - we're coming from a separate docker container
+    volumes:
+      - ${SHARED_DATA}/Foundry-Hub:/usr/share/Paritech/Paritech.Foundry.AdminPortal
+      - ${SHARED_DATA}/DataProtection-Keys:/root/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: foundry.admin
+        target: /app/appsettings.${ENVIRONMENT}.json
+    depends_on:
+      - foundry.hub
+
+  foundry.hub:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}foundry-hub:${DOCKER_VERSION}
+    command: Paritech.Foundry.Hub.dll
+    environment:
+      - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Foundry-Hub:/usr/share/Paritech/Foundry-Hub
+      - ${SHARED_DATA}/DataProtection-Keys:/root/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: foundry.hub
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  foundry.oms:
+    <<: [*xosp-common, *xosp-certificate]
+    image: ${DOCKER_REGISTRY}foundry-oms:${DOCKER_VERSION}
+    command: Paritech.Foundry.Adapter.OMS2.dll
+    environment:
+      - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Foundry-OMS2:/usr/share/Paritech/Foundry-OMS2
+      - ./Startup:/startup:ro
+    configs:
+      - source: foundry.oms
+        target: /app/appsettings.${ENVIRONMENT}.json
+    depends_on:
+      - foundry.hub
+      - oms.hub
+
+  foundry.proc:
+    <<: [*xosp-common, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}foundry-proc:${DOCKER_VERSION}
+    environment:
+      - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Foundry-Processor:/usr/share/Paritech/Foundry-Processor
+    configs:
+      - source: foundry.proc
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  foundry.prodigy:
+    <<: [*xosp-common, *xosp-certificate]
+    image: ${DOCKER_REGISTRY}foundry-prodigy:${DOCKER_VERSION}
+    command: Paritech.Foundry.Adapter.Prodigy.dll
+    environment:
+      - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Foundry-Prodigy:/usr/share/Paritech/Foundry-Prodigy
+      - ./Startup:/startup:ro
+    configs:
+      - source: foundry.prodigy
+        target: /app/appsettings.${ENVIRONMENT}.json
+    depends_on:
+      - foundry.hub
+      - prodigy.gateway
+
+  holiday:
+    <<: [*xosp-common, *xosp-depends-db]
+    image: ${DOCKER_REGISTRY}marketholiday:${DOCKER_VERSION}
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ENVIRONMENT}
+    configs:
+      - source: holiday
+        target: /app/appsettings.${ENVIRONMENT}.json
+    volumes:
+      - ${SHARED_DATA}/Holiday:/usr/share/MotifMarkets/MotifMarkets.MarketHoliday.Web
+    healthcheck:
+      test: curl --fail http://localhost/health || exit 1
+      interval: 1m
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Motif
+  motif.web:
+    <<: *xosp-common
+    image: ${DOCKER_REGISTRY}motif:${DOCKER_VERSION}
+    volumes:
+      - ./Branding/Common:/app/browser/branding
+    configs:
+      - source: motif
+        target: /app/browser/config/config.json
+    depends_on:
+      - zenith
+
+  motif.services:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
+    image: ${DOCKER_REGISTRY}motif-services:${DOCKER_VERSION}
+    command: MotifMarkets.MotifServices.RestAPI.dll
+    environment:
+      - MOTIF_ENVIRONMENT=${ENVIRONMENT}
+      - MOTIF_FORWARDEDHEADERS_ENABLED=True # Disables the KnownProxies check that only allows loopback proxies - we're coming from a separate docker container
+    volumes:
+      - ${SHARED_DATA}/MotifServices:/usr/share/Paritech/MotifServices
+      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: motif.services
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  # Order Management Services 
+  oms.hub:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}oms-hub:${DOCKER_VERSION}
+    command: Paritech.OMS2.Hub.dll
+    environment:
+      - OMS2_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/OMS2-Hub:/usr/share/Paritech/OMS2-Hub
+      - ${SHARED_DATA}/DataProtection-Keys:/root/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: oms.hub
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  oms.prodigy:
+    <<: [*xosp-common, *xosp-certificate]
+    image: ${DOCKER_REGISTRY}oms-prodigy:${DOCKER_VERSION}
+    command: Paritech.OMS2.Trading.Prodigy.dll
+    environment:
+      - OMS2_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/OMS2-Prodigy:/usr/share/Paritech/OMS2-Prodigy
+      - ./Startup:/startup:ro
+    configs:
+      - source: oms.prodigy
+        target: /app/appsettings.${ENVIRONMENT}.json
+    depends_on:
+      - oms.hub
+      - prodigy.gateway
+
+  # Prodigy Exchange Services
+  prodigy.archiver:
+    <<: [*xosp-common, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}prodigy-archiver:${DOCKER_VERSION}
+    environment:
+      - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Prodigy-Archiver:/usr/share/Paritech/Prodigy
+    configs:
+      - *prodigy-common
+      - source: prodigy.archiver
+        target: /app/appsettings.Archiver.${ENVIRONMENT}.json
+
+  prodigy.gateway:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}prodigy-gateway:${DOCKER_VERSION}
+    command: Paritech.Prodigy.Gateway.dll
+    environment:
+      - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Prodigy-Gateway:/usr/share/Paritech/Prodigy
+      - ./Startup:/startup:ro
+    configs:
+      - *prodigy-common
+      - source: prodigy.gateway
+        target: /app/appsettings.Gateway.${ENVIRONMENT}.json
+    hostname: prodigy-gateway
+
+  prodigy.internal:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}prodigy-internal:${DOCKER_VERSION}
+    command: Paritech.Prodigy.Internal.dll
+    environment:
+      - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Prodigy-Internal:/usr/share/Paritech/Prodigy
+      - ${SHARED_DATA}/DataProtection-Keys:/root/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - *prodigy-common
+      - source: prodigy.internal
+        target: /app/appsettings.Internal.${ENVIRONMENT}.json
+
+  prodigy.monitor:
+    <<: *xosp-common
+    image: ${DOCKER_REGISTRY}prodigy-monitor:${DOCKER_VERSION}
+    environment:
+      - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Prodigy-Monitor:/usr/share/Paritech/Prodigy
+    configs:
+      - *prodigy-common
+      - source: prodigy.monitor
+        target: /app/appsettings.RedisMonitor.${ENVIRONMENT}.json
+    depends_on:
+      - redis
+
+  prodigy.public:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}prodigy-public:${DOCKER_VERSION}
+    command: Paritech.Prodigy.Public.dll
+    environment:
+      - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Prodigy-Public:/usr/share/Paritech/Prodigy
+      - ${SHARED_DATA}/DataProtection-Keys:/root/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - *prodigy-common
+      - source: prodigy.public
+        target: /app/appsettings.Public.${ENVIRONMENT}.json
+
+  prodigy.worker:
+    <<: [*xosp-common, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}prodigy-worker:${DOCKER_VERSION}
+    environment:
+      - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Prodigy-Worker:/usr/share/Paritech/Prodigy
+    configs:
+      - *prodigy-common
+      - source: prodigy.worker
+        target: /app/appsettings.Worker.${ENVIRONMENT}.json
+
+  sessions:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
+    image: ${DOCKER_REGISTRY}sessions:${DOCKER_VERSION}
+    command: Paritech.Sessions.Service.dll
+    environment:
+      - SMS_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/SMS:/usr/share/Paritech/SMS
+      - ${SHARED_DATA}/DataProtection-Keys:/root/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: sessions
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  vault:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
+    image: ${DOCKER_REGISTRY}vault-restapi:${DOCKER_VERSION}
+    command: MotifMarkets.Vault.RestAPI.dll
+    environment:
+      - VAULT_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Vault:/usr/share/Paritech/Vault
+      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: vault
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  watchmaker:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
+    image: ${DOCKER_REGISTRY}watchmaker-restapi:${DOCKER_VERSION}
+    command: Paritech.Watchmaker.RestApi.dll
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Watchmaker:/usr/share/MotifMarkets/MotifMarkets.Watchmaker.RestApi
+      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: watchmaker
+        target: /app/appsettings.${ENVIRONMENT}.json
+
+  zenith:
+    <<: [*xosp-common, *xosp-certificate]
+    image: ${DOCKER_REGISTRY}zenith-aio:${DOCKER_VERSION}
+    command: Paritech.Zenith.Service.dll
+    environment:
+      - ZENITH_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Zenith:/usr/share/Paritech/Zenith
+      - ${SHARED_DATA}/DataProtection-Keys:/root/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: zenith.aio
+        target: /app/Paritech.Zenith.Service.dll.${ENVIRONMENT}.config
+      - source: zenith.vetting
+        target: /app/Vetting.${ENVIRONMENT}.config
+      - source: zenith.init
+        target: /app/Autoexec.Service.txt
+    hostname: zenith
+    healthcheck:
+      test: dotnet /app/HealthCheck.dll http://localhost:4502/
+      interval: 1m
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 2s
+    depends_on:
+      - auth
+      - oms.hub
+      - prodigy.gateway
+
+  # Support Services
+  postgres:
+    <<: *xosp-common
+    image: postgres:15.10
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./Database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: pg_isready -h localhost -U $$POSTGRES_USER
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+      start_interval: 2s
+
+  redis:
+    <<: *xosp-common
+    image: redis:${DOCKER_VERSION}
+    volumes:
+      - redisdb:/data
+    healthcheck:
+      test: redis-cli ping | grep PONG || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  nginx:
+    <<: *xosp-common
+    image: nginx:stable
+    configs:
+      - source: nginx
+        target: /etc/nginx/conf.d/default.conf
+    secrets:
+      - certificate.crt
+      - certificate.key
+    healthcheck:
+      test: service nginx status || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Control Tools
+  control:
+    build:
+      context: .
+      dockerfile: Control/Dockerfile
+    profiles:
+      - control
+    volumes:
+      - ${SHARED_DATA}/Control:/root/.local/share/Paritech
+      - ./Tasks:/tasks:ro
+    configs:
+      - source: control.foundry
+        target: /app/foundry/appsettings.json
+      - source: control.oms
+        target: /app/oms/appsettings.json
+      - source: control.prodigy
+        target: /app/prodigy/appsettings.json
+      - source: control.sessions
+        target: /app/sessions/appsettings.json
+    networks:
+      - internal
+
+networks:
+  internal:
+    internal: true
+
+configs:
+  arclight:
+    file: Arclight/config.json
+  audit:
+    file: Audit/appsettings.json
+  auth:
+    file: Auth/appsettings.json
+  auth.secrets:
+    file: ClientSecrets.csv
+  control.foundry:
+    file: Control/foundry/appsettings.json
+  control.oms:
+    file: Control/oms/appsettings.json
+  control.prodigy:
+    file: Control/prodigy/appsettings.json
+  control.sessions:
+    file: Control/sessions/appsettings.json
+  expo:
+    file: Expo/appsettings.json
+  foundry.admin:
+    file: Foundry/appsettings.Admin.json
+  foundry.hub:
+    file: Foundry/appsettings.Hub.json
+  foundry.oms:
+    file: Foundry/appsettings.OMS.json
+  foundry.proc:
+    file: Foundry/appsettings.Processor.json
+  foundry.prodigy:
+    file: Foundry/appsettings.Prodigy.json
+  holiday:
+    file: MarketHoliday/appsettings.json
+  motif:
+    file: Motif/config.json
+  motif.services:
+    file: Services/appsettings.json
+  nginx:
+    file: Nginx/nginx.conf
+  oms.hub:
+    file: OMS/appsettings.Hub.json
+  oms.iress:
+    file: OMS/appsettings.Iress.json
+  oms.prodigy:
+    file: OMS/appsettings.Prodigy.json
+  prodigy:
+    file: Prodigy/appsettings.Common.json
+  prodigy.archiver:
+    file: Prodigy/appsettings.Archiver.json
+  prodigy.gateway:
+    file: Prodigy/appsettings.Gateway.json
+  prodigy.gateway.certificate:
+    file: Prodigy/FixGateway.pfx
+  prodigy.internal:
+    file: Prodigy/appsettings.Internal.json
+  prodigy.monitor:
+    file: Prodigy/appsettings.Monitor.json
+  prodigy.public:
+    file: Prodigy/appsettings.Public.json
+  prodigy.worker:
+    file: Prodigy/appsettings.Worker.json
+  sessions:
+    file: Sessions/appsettings.json
+  vault:
+    file: Vault/appsettings.json
+  watchmaker:
+    file: Watchmaker/appsettings.json
+  zenith.init:
+    file: Zenith/Autoexec.txt
+  zenith.aio:
+    file: Zenith/Paritech.Zenith.Service.dll.config
+  zenith.vetting:
+    file: Zenith/Vetting.config
+
+secrets:
+  certificate.crt:
+    file: ${CERTIFICATE}.crt
+  certificate.pfx:
+    file: ${CERTIFICATE}.pfx
+  certificate.key:
+    file: ${CERTIFICATE}.key
+
+volumes:
+  pgdata:
+  redisdb:

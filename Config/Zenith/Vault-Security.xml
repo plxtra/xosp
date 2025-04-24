@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Vault>
+	<!-- The Market Field visibility levels -->
+	<Level Name="Full"    Types="All"   Fields="Full" />
+	<Level Name="Limited" Types="Asset" Fields="Symbol, SymbolExtended, State, Pricing, Quantities, Auction" />
+
+	<!-- Vault Asset Type Definitions -->
+	<Asset Type="Market"             Class="Market"         Tag="${EnvironmentTag}" />
+	<Asset Type="DelayedMarket"      Class="Market"         Tag="Delayed" />
+	<Asset Type="SampleMarket"       Class="Market"         Tag="Sample" />
+
+	<Asset Type="News"               Class="News"           Tag="${EnvironmentTag}" />
+
+	<Asset Type="TradingAccount"     Class="TradingAccount" Tag="${EnvironmentTag}" />
+
+	<Asset Type="Exchange"           Class="Exchange"       Tag="${EnvironmentTag}" />
+
+	<Asset Type="Broker"             Class="Broker" />
+
+	<!-- Vault Market Definitions. If not mentioned, defaults to Code=Name, Level=Full. -->
+	
+	<!-- Vault News Definitions. If not mentioned, defaults to Code=Name, Level=Full. -->
+</Vault>

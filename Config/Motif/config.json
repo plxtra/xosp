@@ -1,0 +1,174 @@
+{
+  "configFormatVersion": "2",
+  "configComment": "Default XOSP configuration",
+  "service": {
+    "name": "XOSP",
+    "description": "X-Stack Open Source Project",
+    "operator": "Plxtra"
+  },
+  "endpoints": {
+    "motifServices": [
+      "https://svc.${RootUri}"
+    ],
+    "zenith": [
+      "wss://ws.${RootUri}/Zenith?version=2.0"
+    ]
+  },
+  "openId": {
+    "authority": "https://auth.${RootUri}",
+    "clientId": "${ClientID-MotifWeb}",
+    "redirectUri": "https://motif.${RootUri}/auth-callback",
+    "silentRedirectUri": "https://motif.${RootUri}/silent-refresh.html",
+    "scope": "offline_access Zenith${AuthSuffix}/Trading Zenith${AuthSuffix}/Market Zenith${AuthSuffix}/News Zenith${AuthSuffix}/OrderPad Motif${AuthSuffix}/Service"
+  },
+  "defaultLayout": {
+    "internalName": "",
+    "instanceName": "Default",
+    "linkedSymbol": {
+      "code": "XS01",
+      "market": "${MarketCode}"
+    },
+    "watchlist": [
+    ]
+  },
+  "bundledExtensions": [
+    {
+      "info": {
+        "publisherId": {
+          "type": "Organisation",
+          "name": "Plxtra"
+        },
+        "name": "Highcharts",
+        "version": "0.0.3",
+        "apiVersion": "3",
+        "shortDescription": "Highcharts Charting",
+        "longDescription": "Highcharts Charting",
+        "urlPath": "/extensions/highcharts/highcharts.js"
+      },
+      "install": true
+    },
+    {
+      "info": {
+        "publisherId": {
+          "type": "Organisation",
+          "name": "Plxtra"
+        },
+        "name": "TsDemo",
+        "version": "0.0.2",
+        "apiVersion": "3",
+        "shortDescription": "TypeScript Demo",
+        "longDescription": "Example extension demonstrating how an Extension is written with TypeScript",
+        "urlPath": "/extensions/tstest/tsdemo.js"
+      },
+      "install": false
+    }
+  ],
+  "diagnostics": {
+    "telemetry": {
+      "enabled": true,
+      "itemsPerMinute": 3,
+      "maxErrorCount": 1,
+      "itemIgnores": [
+        {
+          "typeId": "Message",
+          "message": "^Error TRDLLFJI33858"
+        },
+        {
+          "typeId": "Message",
+          "message": "^ResizeObserver loop limit exceeded"
+        },
+        {
+          "typeId": "Message",
+          "message": "^Zenith Publisher: Abnormal closure (1006)"
+        },
+        {
+          "typeId": "Message",
+          "message": "^Zenith Reconnection: "
+        }
+      ]
+    },
+    "toolsEnabled": false,
+    "fullDepthDebugLoggingEnabled": false,
+    "fullDepthConsistencyCheckingEnabled": false,
+    "zenithLogLevel": "off",
+    "appNotifyErrors": true,
+    "dataSubscriptionCachingDisabled": false,
+    "motifServicesBypass": {
+      "useLocalStateStorage": false
+    }
+  },
+  "features": {
+    "preview": false,
+    "advertising": false
+  },
+  "branding": {
+    "desktopBarLeftImageUrl": "branding/plxtra-logo.svg"
+  },
+  "markets": {
+    "defaultDefaultZenithExchangeCode": "${MarketCode}",
+    "exchangeEnvironments": [
+      {
+        "zenithCode": null,
+        "production": false,
+        "display": {
+          "en": "XOSP Local Demonstration"
+        }
+      }
+    ],
+    "exchanges": [
+      {
+        "zenithCode": "${MarketCode}",
+        "symbologyCode": "${MarketShortCode}",
+        "defaultSymbolNameField": "Name",
+        "allowedSymbolNameFields": ["Code", "Name"],
+        "defaultSymbolSearchFields": ["Code", "Name"],
+        "allowedSymbolSearchFields": ["Code", "Name"],
+        "abbreviatedDisplay": {
+          "en": "XOSP"
+        },
+        "fullDisplay": {
+          "en": "${MarketCode}"
+        },
+        "defaultLitMarketZenithCode": "${MarketCode}",
+        "dataMarkets": [
+          {
+            "name": "${MarketCode}M",
+            "zenithCode": "${MarketCode}",
+            "symbologyExchangeSuffixCode": "X",
+            "displayPriority": 10,
+            "display": {
+              "en": "${MarketCode} Main Market"
+            },
+            "bestTradingMarketZenithCode": "${MarketBoardCode}",
+            "boards": [
+              {
+                "name": "${MarketCode}Main",
+                "zenithCode": "${MarketBoardCode}",
+                "display": {
+                  "en": "${MarketCode} Main Board"
+                }
+              }
+            ]
+          }
+        ],
+        "tradingMarkets": [
+          {
+            "name": "${MarketCode}",
+            "zenithCode": "${MarketRouteCode}",
+            "displayPriority": 10,
+            "display": {
+              "en": "${MarketCode} Main"
+            },
+            "symbologicalCorrespondingDataMarketZenithCode": "${MarketCode}",
+            "allowedOrderTypes": ["Limit", "Market", "MarketToLimit"],
+            "defaultOrderType": "Market",
+            "allowedOrderTimeInForces": ["Day", "GoodTillCancel", "GoodTillDate"],
+            "defaultOrderTimeInForce": "GoodTillCancel",
+            "allowedOrderTriggerTypes": ["Immediate"],
+            "allowedOrderTradeTypes": ["Buy", "Sell"]
+          }
+        ]
+      }
+    ]
+  }
+}

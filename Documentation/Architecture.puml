@@ -1,0 +1,81 @@
+@startuml
+
+package "Exchange Services" {
+
+	[Prodigy Exchange] as Exchange
+	() "FIX" as Exchange.FIX
+	Exchange.FIX - Exchange
+
+	[Foundry Asset Registry] as Registry
+	() "HTTP" as Registry.HTTP
+	Registry.HTTP - Registry
+
+	Registry ..> Exchange.FIX
+}
+
+package "Data Services" as Data {
+	[Order Management System] as OMS
+	() "HTTP" as OMS.HTTP
+	OMS.HTTP - OMS
+
+	[Zenith Data Services] as Zenith
+	() "WebSocket" as Zenith.WS
+	() "IQ" as Zenith.IQ
+	Zenith.WS - Zenith
+	Zenith -right- Zenith.IQ
+
+	[Doppler Market Scanner] as Doppler
+	() "HTTP" as Doppler.HTTP
+	Doppler.HTTP - Doppler
+
+	Zenith ..> OMS.HTTP
+	Zenith ..> Doppler.HTTP
+
+	OMS ..> Exchange.FIX
+}
+
+cloud "Front-End" {
+	[Motif]
+	[Motif.XL]
+	[Foundry Admin] as FoundryAdmin
+
+	Motif ..> Zenith.WS
+	Motif.XL ..> Zenith.IQ
+
+	FoundryAdmin ..> Registry.HTTP
+}
+
+package "Support Services" as Support {
+	[Market Holidays] as Holiday
+	() "HTTP" as Holiday.HTTP
+	Holiday.HTTP - Holiday
+
+	[Watchmaker] as Watchlist
+	() "HTTP" as Watchlist.HTTP
+	Watchlist.HTTP - Watchlist
+	
+	[Herald Notifier] as Herald
+	() "HTTP" as Herald.HTTP
+	Herald.HTTP - Herald
+}
+
+package "Security Services" as Security {
+	[Vault Access Registry] as Vault
+	() "HTTP" as Vault.HTTP
+	Vault.HTTP - Vault
+
+	[Session Management] as SMS
+	() "HTTP" as SMS.HTTP
+	SMS.HTTP - SMS
+
+	[Auth Server] AS OAuth
+}
+
+database "Database" {
+	[Permissions]
+	[Market Events] as Market
+	[Order Events] as Orders
+	[Asset Events] as Assets
+}
+
+@enduml

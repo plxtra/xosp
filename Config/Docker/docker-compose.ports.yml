@@ -1,0 +1,6 @@
+services:
+  nginx:
+    ports:
+      - ${SSL_PORT}:443
+    networks:
+      - default # Need to be connected to the default network for port forwarding to work

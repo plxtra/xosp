@@ -1,0 +1,3 @@
+Feed.WsServer LogFailedAuthentication=true
+Feed.WsServer LogInvalidRequests=true
+Feed.WsServer LogFailedHttpRequests=true

@@ -1,0 +1,6 @@
+"Role"
+"Zenith${AuthSuffix}:Administrator"
+"Foundry${AuthSuffix}:Operator"
+"Foundry${AuthSuffix}:SuperUser"
+"Motif${AuthSuffix}:User"
+"MotifXL${AuthSuffix}:User"

@@ -1,0 +1,114 @@
+@startuml X-Stack
+
+cloud "Front-End" as FrontEnd {
+	frame Motif
+	frame Motif.XL
+	frame Foundry.Admin
+}
+
+collections Zenith as "Zenith Data Services"
+agent Doppler as "Doppler Market Scanner"
+
+database Storage
+
+Zenith --> Doppler
+
+node "Order Management" as OMS {
+	collections OMS.Hub as "OMS API Hub"
+
+	collections OMS.Adapter as "OMS Prodigy Adapter"
+
+	portin HTTP AS OMS.REST
+
+	OMS.Hub <-- OMS.Adapter
+	OMS.REST --> OMS.Hub
+}
+
+Zenith --> OMS.REST
+
+
+
+node "Prodigy Exchange" as Prodigy {
+	collections Prodigy.Gateway as "FIX Gateway"
+
+	collections Prodigy.Public as "Public API"
+	collections Prodigy.Internal as "Internal API"
+
+	collections Prodigy.Worker as "Market Worker"
+	collections Prodigy.Archiver as "Historical Archiver"
+
+	collections Prodigy.Monitor as "System Monitor"
+
+	portin FIX as Prodigy.FIX
+	portin HTTP as Prodigy.REST
+
+	Prodigy.FIX --> Prodigy.Gateway
+	Prodigy.REST --> Prodigy.Public
+	Prodigy.REST --> Prodigy.Internal
+
+	Prodigy.Gateway ..> Prodigy.Worker
+	Prodigy.Worker ..> Prodigy.Archiver
+
+	Prodigy.Public <.. Prodigy.Worker
+	Prodigy.Internal <.. Prodigy.Archiver
+}
+
+OMS.Adapter --> Prodigy.FIX
+Zenith --> Prodigy.FIX
+Zenith --> Prodigy.REST
+
+node "Foundry Registry" as Foundry {
+	collections Foundry.Hub as "Foundry API Hub"
+
+	collections Foundry.Adapter.Prodigy as "Foundry Prodigy Adapter"
+	collections Foundry.Adapter.OMS as "Foundry OMS Adapter"
+
+	Foundry.Adapter.Prodigy --> Prodigy.FIX
+	Foundry.Hub <-- Foundry.Adapter.Prodigy
+
+	Foundry.Adapter.OMS --> OMS.REST
+	Foundry.Hub <-- Foundry.Adapter.OMS
+
+	portin HTTP as Foundry.REST
+
+	Foundry.REST --> Foundry.Hub
+
+	
+}
+
+collections "Foundry Admin API" as Foundry.API
+
+Foundry.API --> Foundry.REST
+
+package "Support Services" as Support {
+	collections Vault
+
+	collections "Session Management" as SMS
+
+	agent "Market Holiday" as Holidays
+
+	agent Watchmaker
+
+	agent Herald
+
+	collections "Auth Server" as OAuth
+}
+
+Motif --> Zenith
+Motif.XL --> Zenith
+Foundry.Admin --> Foundry.API
+
+folder Data {
+file "Initial Balances" as Balances
+file "Initial Holdings" as Holdings
+file "Symbol Definitions" as Symbols
+file "User/Account Definitions" as Accounts
+}
+
+Data --> Foundry
+Holdings --> Foundry
+Symbols -> Prodigy
+Accounts --> Vault
+Accounts -> OAuth
+
+@enduml

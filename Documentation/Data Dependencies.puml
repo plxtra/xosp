@@ -1,0 +1,63 @@
+@startuml
+
+actor Script
+participant Docker
+database Postgres
+participant AuthServer
+participant Prodigy
+
+== Infrastructure Phase ==
+
+Script -> Script : Prepare Docker .env
+Script -> Docker : Create containers with Compose Create
+Script -> Docker : Start Postgres
+Docker --> Postgres
+Postgres -> Postgres : Create Databases
+
+Script -> Script : Prepare Nginx Configuration
+Script -> Script : Prepare HTTPS Certificate
+
+Script -> Docker : Start Nginx
+
+== Auth Phase ==
+
+Script -> Docker : Start AuthServer
+Script -> AuthServer ++ : Configure Authentication Details
+AuthServer --> Script -- : Receive User IDs
+
+Script -> Docker : Start Vault
+Script -> Vault : Configure User Permissions
+
+== Prodigy Phase ==
+
+Script -> Script : Prepare Prodigy  Configuration
+Script -> Docker : Start Prodigy
+Script -> Prodigy : Add Market
+Script -> Prodigy : Add Symbol(s)
+Script -> Prodigy : Configure FIX Sessions
+
+== OMS Phase ==
+
+Script -> Script : Prepare OMS Configuration
+Script -> Docker : Start OMS Hub
+Script -> OMS : Configure Identity
+Script -> Docker : Start OMS Adapter
+
+== Foundry Phase ==
+
+Script -> Script : Prepare Foundry Configuration
+Script -> Docker : Start Foundry Hub & Processor
+Script -> Foundry: Configure Identity
+Script -> Docker : Start Foundry Adapters
+Script -> Foundry : Add Starting Balances and Holdings
+
+== Final Phase ==
+
+Script -> Script : Prepare Front-End Configuration
+
+Script -> Docker : Start SMS & Watchmaker
+Script -> Docker : Start Zenith
+
+Script -> Docker : Start Motif Services & Motif
+
+@enduml
