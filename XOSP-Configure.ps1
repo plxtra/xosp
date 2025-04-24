@@ -136,17 +136,6 @@ if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
 }
 
 #########################################
-# TODO: Remove this for release
-
-# Check for AWS CLI installation
-if ($null -eq (Get-Command aws -ErrorAction Ignore))
-{
-	Write-Host "Unable to locate AWS CLI. Please ensure you have the AWS CLI tools installed."
-
-	exit
-}
-
-#########################################
 
 Write-Host "Preparing Data Files..."
 

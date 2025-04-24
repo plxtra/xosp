@@ -36,24 +36,19 @@ if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
 }
 
 #########################################
-# TODO: Remove this for release
 
-if (!($Parameters.RegistryUri -match "(?<id>\d+)\.dkr\.ecr\.(?<region>[\w-]+)\.amazonaws\.com"))
+if ($Parameters.RegistryUri -match "(?<id>\d+)\.dkr\.ecr\.(?<region>[\w-]+)\.amazonaws\.com")
 {
-	Write-Warning "Invalid Amazon ECR registry URL. Must match <Registry ID>.dkr.ecr.<AWS Region>.amazonaws.com"
-	
-	exit
-}
+	$AwsRegion = $Matches.region
 
-$AwsRegion = $Matches.region
+	$LoginOutput = & aws ecr get-login-password --region $AwsRegion | docker login --username AWS --password-stdin $Parameters.RegistryUri
 
-$LoginOutput = & aws ecr get-login-password --region $AwsRegion | docker login --username AWS --password-stdin $Parameters.RegistryUri
-
-if (!$?)
-{
-	Write-Warning "Failed to login to AWS container registry"
-	Write-Host $LoginOutput
-	exit
+	if (!$?)
+	{
+		Write-Warning "Failed to login to AWS container registry"
+		Write-Host $LoginOutput
+		exit
+	}
 }
 
 #########################################
