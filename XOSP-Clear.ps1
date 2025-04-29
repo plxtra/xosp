@@ -24,7 +24,7 @@ if ($Parameters.ForwardPorts)
 	$ComposeArgs += @("--file", $(Join-Path $TargetPath "docker-compose.ports.yml"))
 }
 
-$Choices = "&Yes", "&No"
+$Choices = "&Clear", "&Abort"
 
 $Choice = $Host.UI.PromptForChoice("Clear XOSP Environment", "Clear all running containers, volumes, and logs?", $Choices, 1)
 

@@ -3,16 +3,87 @@
 param(
 	[Parameter(Position=0)]
 	[Alias("Profile")]
-	[string] $ConfigProfile = "Default"
+	[string] $ConfigProfile
 )
+
+$XospVersion = 0.9
+
+#########################################
 
 $SourcePath = Join-Path $PSScriptRoot Config # Where to find the configuration source files
 $TargetPath = Join-Path $PSScriptRoot Docker # Where to output the prepared configurations
+$CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json" # Where our compiled configuration goes
+$ParamsPath = Join-Path $PSScriptRoot "XOSP-Params.json" # Where any configuration overrides go
 
-$ParamsPath = Join-Path $PSScriptRoot "XOSP-Params.json"
+if (Test-Path $CoreParamsPath)
+{
+	$CoreParameters = Get-Content $CoreParamsPath -Raw | ConvertFrom-Json -AsHashtable
+
+	if ([String]::IsNullOrEmpty($CoreParameters.Profile))
+	{
+		$CoreParameters.Profile = "Default"
+	}
+
+	if ($ConfigProfile -ne $CoreParameters.Profile)
+	{
+		# If no profile is specified, restore the previous selection
+		if ([String]::IsNullOrEmpty($ConfigProfile))
+		{
+			$ConfigProfile = $CoreParameters.Profile
+		}
+		elseif (Test-Path $ParamsPath)
+		{
+			# Profile supplied, and is different, so we want to reset to the new profile
+			Write-Host "Resetting to new profile: $ConfigProfile"
+
+			Remove-Item $ParamsPath
+			$CoreParameters = $null
+		}
+	}
+}
+else
+{
+	$CoreParameters = $null
+}
+
+# If we're reapplying to an existing installation, check if the version has changed
+if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
+{
+	$ProfilePath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json" # The source of your current profile
+
+	# The version has changed, but that might not matter if the profile configuration is the same
+	if ((Get-Content $ParamsPath -Raw) -ne (Get-Content $ProfilePath -Raw))
+	{
+		# The profile content has changed (or been customised)
+		$Choices = "&Reset", "&Ignore", "&Abort"
+
+		$Choice = $Host.UI.PromptForChoice("XOSP Configuration Changed", "This XOSP version is different from your existing installation, and any customisations may be invalid.", $Choices, 1)
+
+		if ($Choice -eq 2)
+		{
+			Write-Host "Aborted. No changes were made."
+			
+			exit
+		}
+
+		if ($Choice -eq 1 -and (Test-Path $ParamsPath))
+		{
+			Write-Host "Resetting to new profile: $ConfigProfile"
+
+			Remove-Item $ParamsPath
+			$CoreParameters = $null
+		}
+	}
+}
 
 if (!(Test-Path $ParamsPath))
 {
+	# If no profile is specified, use the default
+	if ([String]::IsNullOrEmpty($ConfigProfile))
+	{
+		$ConfigProfile = "Default"
+	}
+
 	# If there's no active parameters, we want to grab some defaults
 	$ProfilePath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"
 
@@ -22,15 +93,19 @@ if (!(Test-Path $ParamsPath))
 
 		exit
 	}
+
+	Write-Host "Selecting profile: $ConfigProfile"
 	
 	Copy-Item -Path $ProfilePath -Destination $ParamsPath
 }
 
 # Execute our common sub-script. Dot sourcing to share the execution context and inherit any variables
-. (Join-Path $PSScriptRoot "XOSP-Common.ps1")
+. (Join-Path $PSScriptRoot "XOSP-Common.ps1") -Profile $ConfigProfile
 
 # We want to copy the parameters for later, as we'll be sticking credentials and stuff inside the original
 $CoreParameters = $Parameters.Clone()
+$CoreParameters.Profile = $ConfigProfile
+$CoreParameters.Version = $XospVersion
 
 #########################################
 
@@ -509,11 +584,10 @@ if ($true)
 	{
 		$OutputFile.Dispose()
 	}
-	
 
 	# Generate the init parameters file, which will get loaded inside docker during environment setup
-	$ParamsTargetPath = Join-Path $TargetPath "Init" "init-params.json"
-	$CoreParameters | ConvertTo-Json | Set-Content $ParamsTargetPath
+	$CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json"
+	$CoreParameters | ConvertTo-Json | Set-Content $CoreParamsPath
 
 	# Generate the task parameters file, which will get loaded by various administrative task scripts
 	$TaskParameters = @{
@@ -524,8 +598,8 @@ if ($true)
 		XospClientSecret = $Parameters['ClientSecret-XospControl']
 	}
 	
-	$ParamsTargetPath = Join-Path $TargetPath "Tasks" "task-params.json"
-	$TaskParameters | ConvertTo-Json | Set-Content $ParamsTargetPath
+	$TaskParamsPath = Join-Path $TargetPath "Tasks" "task-params.json"
+	$TaskParameters | ConvertTo-Json | Set-Content $TaskParamsPath
 }
 
 Read-Host -Prompt "Press Enter to finish"

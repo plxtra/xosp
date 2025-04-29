@@ -1,5 +1,7 @@
 # This file contains shared code for XOSP operations, and is not meant to be executed directly
 param(
+	[Alias("Profile")]
+	[string] $ConfigProfile,
 	[switch] $UseCoreParams
 )
 
@@ -16,13 +18,14 @@ else
 	# Set some defaults, which may be changed by the params file
 	$private:ParamSources = @(
 		(Join-Path $PSScriptRoot "Config" "Init" "init-defaults.json"),
+		#(Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"), # We could theoretically apply the profile, and then the users overrides
 		(Join-Path $PSScriptRoot "XOSP-Params.json")
 	)
 
 	#########################################
 
 	$private:Defaults = @{
-		SharedDataPath = "/usr/share/Plxtra/XOSP"
+		SharedDataPath = "~/Plxtra/XOSP"
 		ForwardPorts = $false;
 		SslPort = 443;
 		MarketTimeZone = "Utc"
@@ -31,13 +34,13 @@ else
 	# Setup some host-specific defaults
 	if ($IsWindows)
 	{
-		$private:Defaults.SharedDataPath = "${env:ProgramData}\XOSP"
+		$private:Defaults.SharedDataPath = "${env:LOCALAPPDATA}\Plxtra\XOSP"
 		$private:Defaults.ForwardPorts = $true
 		$private:Defaults.SslPort = 8043
 	}
 	elseif ($IsMacOS)
 	{
-		$private:Defaults.SharedDataPath = "/usr/share/Plxtra/XOSP"
+		$private:Defaults.SharedDataPath = "~/Plxtra/XOSP"
 		$private:Defaults.ForwardPorts = $true
 		$private:Defaults.SslPort = 8043
 	}
