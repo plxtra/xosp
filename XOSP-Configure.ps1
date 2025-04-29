@@ -1,23 +1,36 @@
 #Requires -PSEDition Core -Version 7
 
-if (!(Test-Path "XOSP-Params.ps1"))
+param(
+	[Parameter(Position=0)]
+	[Alias("Profile")]
+	[string] $ConfigProfile = "Default"
+)
+
+$SourcePath = Join-Path $PSScriptRoot Config # Where to find the configuration source files
+$TargetPath = Join-Path $PSScriptRoot Docker # Where to output the prepared configurations
+
+$ParamsPath = Join-Path $PSScriptRoot "XOSP-Params.json"
+
+if (!(Test-Path $ParamsPath))
 {
-	Write-Warning "Unable to find parameters. Ensure XOSP-Params.ps1 exists"
+	# If there's no active parameters, we want to grab some defaults
+	$ProfilePath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"
+
+	if (!(Test-Path $ProfilePath))
+	{
+		Write-Warning "Unable to find parameter profile for $ConfigProfile."
+
+		exit
+	}
 	
-	exit
+	Copy-Item -Path $ProfilePath -Destination $ParamsPath
 }
 
-$RootPath = Get-Location
-$SourcePath = Join-Path $RootPath Config # Where to find the configuration source files
-$TargetPath = Join-Path $RootPath Docker # Where to output the prepared configurations
+# Execute our common sub-script. Dot sourcing to share the execution context and inherit any variables
+. (Join-Path $PSScriptRoot "XOSP-Common.ps1")
 
-# Execute our various sub-scripts. Dot sourcing to share the execution context and inherit any variables
-. (Join-Path $SourcePath "Init" "init-defaults.ps1")
-. (Join-Path $PSScriptRoot "XOSP-Module.ps1")
-. (Join-Path $PSScriptRoot "XOSP-Params.ps1")
-
-# Apply any transformations we need
-PostParameters
+# We want to copy the parameters for later, as we'll be sticking credentials and stuff inside the original
+$CoreParameters = $Parameters.Clone()
 
 #########################################
 
@@ -135,6 +148,17 @@ if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
 	exit
 }
 
+if ($Parameters.RegistryUri -match "(?<id>\d+)\.dkr\.ecr\.(?<region>[\w-]+)\.amazonaws\.com")
+{
+	# Check for AWS CLI installation, as it's needed to login to the private registry
+	if ($null -eq (Get-Command aws -ErrorAction Ignore))
+	{
+		Write-Host "Unable to locate AWS CLI. Please ensure you have the AWS CLI tools installed in order to use a private registry."
+
+		exit
+	}
+}
+
 #########################################
 
 Write-Host "Preparing Data Files..."
@@ -161,7 +185,7 @@ foreach ($SourceFile in $SourceFiles)
 #########################################
 
 $DbCredentials = @{}
-# $Databases populated from XOSP-Module.ps1
+# $Databases populated from XOSP-Common.ps1
 
 if ($true)
 {
@@ -317,7 +341,7 @@ foreach ($SourceFile in $SourceFiles)
 
 #########################################
 
-if ($GenerateCertificate -eq $true)
+if ($Parameters.GenerateCertificate -eq $true)
 {
 	$CertificateFile = Join-Path $TargetPath $Parameters.CertificateFile
 	
@@ -328,6 +352,8 @@ if ($GenerateCertificate -eq $true)
 		$TargetFile = Join-Path $TargetPath $CertificateFile
 		
 		# Generate self-signed certificate
+		# TODO: Make this generate a self-signed root cert too, which can be used for Firefox
+
 		# The New-SelfSignedCertificate plugin only exists on Windows.
 		# Since we want to be compatible with Powershell Core running on Linux, we use the native .Net primitives
 		$KeyLength = 2048
@@ -415,9 +441,9 @@ if ($true)
 	
 	# Prepare the environment file
 	$SourceFile = Join-Path $SourcePath "Docker" ".env"
-	$TargetFile = Join-Path $TargetPath $DockerEnvironmentFile
+	$TargetFile = Join-Path $TargetPath $Parameters.DockerEnvFile
 	
-	Copy-WithReplace $SourceFile $TargetFile $Parameters	
+	Copy-WithReplace $SourceFile $TargetFile $Parameters
 }
 
 #########################################
@@ -451,10 +477,11 @@ if ($true)
 	}	
 	
 	# Generate the credentials file, which will get loaded by the script and used for user and database creation
+	# We want a format supported by 'declare' in bash, otherwise we'd just provide the DbCredentials.csv
 	$TargetFile = Join-Path $DbTargetPath "credentials"
 	
 	$OutputFile = [System.IO.File]::CreateText($TargetFile)
-	$OutputFile.NewLine = "`n" # Needs the Unix newline, as it'll be loaded by a shell script
+	$OutputFile.NewLine = "`n" # Needs the Unix newline, as it'll be read inside a linux container
 
 	try
 	{
@@ -485,31 +512,20 @@ if ($true)
 	
 
 	# Generate the init parameters file, which will get loaded inside docker during environment setup
-	Copy-Item "XOSP-Params.ps1" (Join-Path $TargetPath "Init" "init-params.ps1")
+	$ParamsTargetPath = Join-Path $TargetPath "Init" "init-params.json"
+	$CoreParameters | ConvertTo-Json | Set-Content $ParamsTargetPath
 
 	# Generate the task parameters file, which will get loaded by various administrative task scripts
-	$TargetFile = Join-Path $TargetPath "Tasks" "init-params.ps1"
+	$TaskParameters = @{
+		UsingFoundry = $false;
+		TokenService = "https://auth.$($Parameters.RootUri)";
+		AuthSuffix = $Parameters.AuthSuffix;
+		XospClientId = $Parameters['ClientID-XospControl'];
+		XospClientSecret = $Parameters['ClientSecret-XospControl']
+	}
 	
-	$OutputFile = [System.IO.File]::CreateText($TargetFile)
-
-	try
-	{
-		$OutputFile.WriteLine("`$UsingFoundry = `$false");
-		$OutputFile.WriteLine()
-		$OutputFile.WriteLine("`$TokenService = 'https://auth.$($Parameters.RootUri)'");
-		$OutputFile.WriteLine("`$AuthSuffix = '$($Parameters.AuthSuffix)'");
-		$OutputFile.WriteLine()
-		
-		$XospClientId = $Parameters['ClientID-XospControl']
-		$XospClientSecret = $Parameters['ClientSecret-XospControl']		
-		$OutputFile.WriteLine("`$XospClientId = '$XospClientId'");
-		$OutputFile.WriteLine("`$XospClientSecret = '$XospClientSecret'");
-		$OutputFile.Close()
-	}
-	finally
-	{
-		$OutputFile.Dispose()
-	}
+	$ParamsTargetPath = Join-Path $TargetPath "Tasks" "task-params.json"
+	$TaskParameters | ConvertTo-Json | Set-Content $ParamsTargetPath
 }
 
 Read-Host -Prompt "Press Enter to finish"

@@ -1,11 +1,11 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $MarketCode,
-	[Int32] $StartFrom,
-	[Int32] $Count,
-	[String] $SymbolTemplate,
-	[String] $NameTemplate = "Default Security {0}",
-	[String] $Currency = "AUD"
+	[string] $MarketCode,
+	[int] $StartFrom,
+	[int] $Count,
+	[string] $SymbolTemplate,
+	[string] $NameTemplate = "Default Security {0}",
+	[string] $Currency = "AUD"
 )
 
 # This script registers a series of Symbols with the XOSP system

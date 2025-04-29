@@ -1,14 +1,14 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $OwnerCode,
-	[String] $AccountCode,
-	[String] $AccountName,
-	[String] $InvestorCode,
-	[String] $InvestorName,
-	[String] $Currency,
-	[String[]] $UserAssociations,
-	[String] $UserAssetType = "USER",
-	[String] $AccountAssetType = "TRADINGACCOUNT"
+	[string] $OwnerCode,
+	[string] $AccountCode,
+	[string] $AccountName,
+	[string] $InvestorCode,
+	[string] $InvestorName,
+	[string] $Currency,
+	[string[]] $UserAssociations,
+	[string] $UserAssetType = "USER",
+	[string] $AccountAssetType = "TRADINGACCOUNT"
 )
 
 # This script registers a new Trading Account with the XOSP system
@@ -16,15 +16,14 @@ param (
 # - Registers the Trading Account in the OMS
 # - Associates the Trading Account with one or more users for trading
 
-if (!(Test-Path "/tasks/init-params.ps1"))
+if (!(Test-Path "/tasks/task-params.json"))
 {
 	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
-	exit
+	exit -1
 }
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"

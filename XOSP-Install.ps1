@@ -4,24 +4,18 @@ param(
 	[switch] $AlwaysPull = $false
 )
 
-if (!(Test-Path "XOSP-Params.ps1"))
+$TargetPath = Join-Path $PSScriptRoot "Docker"
+$ParamsSource = Join-Path $TargetPath "Init" "init-params.json"
+
+if (!(Test-Path $ParamsSource))
 {
-	Write-Warning "Unable to find parameters. Ensure XOSP-Params.ps1 exists"
+	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
 	exit
 }
 
-$RootPath = Get-Location
-$SourcePath = Join-Path $RootPath Config # Where to find the configuration source files
-$TargetPath = Join-Path $RootPath Docker # Where to output the prepared configurations
-
-# Execute our various sub-scripts. Dot sourcing to share the execution context and inherit any variables
-. (Join-Path $SourcePath "Init" "init-defaults.ps1")
-. (Join-Path $PSScriptRoot "XOSP-Module.ps1")
-. (Join-Path $PSScriptRoot "XOSP-Params.ps1")
-
-# Apply any transformations we need
-PostParameters
+# Execute our common sub-script. Dot sourcing to share the execution context and inherit any variables
+. (Join-Path $PSScriptRoot "XOSP-Common.ps1") -UseCoreParams
 
 #########################################
 
@@ -37,24 +31,49 @@ if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
 
 #########################################
 
+$ExpectPullThrottling = $false
+
 if ($Parameters.RegistryUri -match "(?<id>\d+)\.dkr\.ecr\.(?<region>[\w-]+)\.amazonaws\.com")
 {
+	# If we're using a private AWS registry, we need to login
 	$AwsRegion = $Matches.region
 
 	$LoginOutput = & aws ecr get-login-password --region $AwsRegion | docker login --username AWS --password-stdin $Parameters.RegistryUri
 
 	if (!$?)
 	{
-		Write-Warning "Failed to login to AWS container registry"
+		Write-Warning "Failed to login to AWS private container registry"
 		Write-Host $LoginOutput
 		exit
+	}
+}
+elseif ($Parameters.RegistryUri -match "public.ecr.aws/(?<id>\w+)")
+{
+	# If we're using the public AWS registry, there's a 1 pull-per-second throttling limit for unauthenticated users which we can easily hit
+
+	if ($null -ne (Get-Command aws -ErrorAction Ignore))
+	{
+		# The CLI tools are installed, let's try to login, since the throttling is much less severe
+		$LoginOutput = & aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin $Parameters.RegistryUri
+
+		if (!$?)
+		{
+			Write-Warning "Failed to login to AWS public container registry, will continue unauthenticated"
+			
+			$ExpectPullThrottling = $true
+		}
+	}
+	else
+	{
+		# AWS CLI is not installed, so we assume they're not logged in
+		$ExpectPullThrottling = $true
 	}
 }
 
 #########################################
 
 # "--project-directory", $TargetPath,
-$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $DockerEnvironmentFile))
+$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
 #$ComposeArgs += @("--progress", "quiet")
 
 if ($Parameters.ForwardPorts)
@@ -69,11 +88,19 @@ $InitArgs = @($RunArgs, "--volume", ((Join-Path $TargetPath "Init") + ":/init"))
 
 #########################################
 
+if ($AlwaysPull -and $ExpectPullThrottling)
+{
+	# Some registries have throttling applied to pull requests, so we do this slow
+	& docker @ComposeArgs --parallel 1 pull --policy always
+	FailWithError "Unable to pull the XOSP images."
+}
+
 # Pre-create all our containers at once. We'll bring them up once their dependencies are configured
 $CreateArgs = @("create")
 
-if ($AlwaysPull)
+if ($AlwaysPull -and -not $ExpectPullThrottling)
 {
+	# We don't expect throttling, so we can just pull as part of create and do it all in parallel
 	$CreateArgs += @("--pull", "always")
 }
 
@@ -100,7 +127,7 @@ else
 & docker @ComposeArgs @UpArgs postgres redis auth
 FailWithError "Unable to bring up all support services."
 
-#TODO: Remove the initialisation volume from postgres?
+#TODO: Remove the initialisation mount binding from postgres?
 
 #########################################
 
@@ -115,9 +142,6 @@ Write-Host "Starting Core Application services..."
 # Start all core application services that don't directly connect to anything besides the Auth Server and Support services
 & docker @ComposeArgs @UpArgs audit foundry.hub foundry.proc oms.hub prodigy.archiver prodigy.gateway prodigy.internal prodigy.monitor prodigy.public prodigy.worker sessions vault
 FailWithError "Unable to bring up all core containers."
-
-# TODO: Exercise the REST API to populate the FIX sessions
-#& docker @ComposeArgs @SetupArgs control "/init/fix-init.ps1" -Owner $Parameters.MarketOperator -OwnerName $Parameters.MarketOperatorName
 
 # REST API is currently incomplete, so we insert the required sessions directly into the database
 Write-Host "Initialising FIX Sessions..."

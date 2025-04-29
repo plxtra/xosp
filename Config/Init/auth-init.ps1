@@ -1,25 +1,25 @@
 #Requires -PSEDition Core -Version 7
-
-#########################################
+param(
+	[string] $BaseUri = "http://auth"
+)
 
 $SourcePath = $PSScriptRoot
-$BaseUri = "http://auth"
 
 #########################################
 
 function Sync-Client
 {
 	param (
-		[String] $BaseUri,
-		[String] $ClientId,
-		[String] $ClientSecret,
-		[String[]] $Permissions,
-		[String] $DisplayName = "",
-		[String] $Consent = "explicit",
-		[String[]] $Uris = @(),
-		[String[]] $LogoutUris = @(),
-		[String[]] $Requirements = @(),
-		[Boolean] $Confidential
+		[string] $BaseUri,
+		[string] $ClientId,
+		[string] $ClientSecret,
+		[string[]] $Permissions,
+		[string] $DisplayName = "",
+		[string] $Consent = "explicit",
+		[string[]] $Uris = @(),
+		[string[]] $LogoutUris = @(),
+		[string[]] $Requirements = @(),
+		[bool] $Confidential
 	)
 	
 	$Body = @{
@@ -55,10 +55,10 @@ function Sync-Client
 function Sync-Role
 {
 	param (
-		[String] $BaseUri,
-		[String] $Name,
-		[String[]] $ClaimTypes,
-		[String[]] $ClaimValues
+		[string] $BaseUri,
+		[string] $Name,
+		[string[]] $ClaimTypes,
+		[string[]] $ClaimValues
 	)
 	
 	$Body = @{
@@ -113,11 +113,11 @@ function Sync-Role
 function Sync-Scope
 {
 	param (
-		[String] $BaseUri,
-		[String] $Name,
-		[String] $DisplayName = "",
-		[String] $Description = "",
-		[String[]] $Resources
+		[string] $BaseUri,
+		[string] $Name,
+		[string] $DisplayName = "",
+		[string] $Description = "",
+		[string[]] $Resources
 	)
 	
 	$Body = @{
@@ -151,7 +151,7 @@ function Sync-Scope
 
 #########################################
 
-Write-Host "Populating Authentication Server." -NoNewline
+Write-Host "Initialising Authentication Server." -NoNewline
 
 $ClientApplicationsFile = Join-Path $SourcePath "auth-clients.csv"
 $ClientApplications = Import-Csv -Path $ClientApplicationsFile

@@ -1,13 +1,13 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $OwnerCode,
-	[Int32] $StartFrom,
-	[Int32] $Count,
-	[String] $AccountTemplate,
-	[String] $InvestorTemplate,
-	[String] $NameTemplate = "XOSP Account {0}",
-	[String] $InvestorNameTemplate = "Investor {0}",
-	[String] $Currency = "AUD"
+	[string] $OwnerCode,
+	[int] $StartFrom,
+	[int] $Count,
+	[string] $AccountTemplate,
+	[string] $InvestorTemplate,
+	[string] $NameTemplate = "XOSP Account {0}",
+	[string] $InvestorNameTemplate = "Investor {0}",
+	[string] $Currency = "AUD"
 )
 
 # This script registers a series of Trading Accounts with the XOSP system

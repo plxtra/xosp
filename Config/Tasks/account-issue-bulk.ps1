@@ -1,9 +1,9 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String[]] $Accounts, # Format OWNER:ACCOUNT
-	[String[]] $Symbols, # Format SYMBOL.MARKET
-	[Decimal] $Amount,
-	[Switch] $OnlyIfZero
+	[string[]] $Accounts, # Format OWNER:ACCOUNT
+	[string[]] $Symbols, # Format SYMBOL.MARKET
+	[decimal] $Amount,
+	[switch] $OnlyIfZero
 )
 
 # This script issues the same amount of shares in a given symbol to multiple accounts

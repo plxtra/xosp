@@ -1,10 +1,8 @@
 #Requires -PSEDition Core -Version 7
 
-
 #########################################
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $SessionsControl = "/app/sessions/Paritech.Sessions.Control.dll"

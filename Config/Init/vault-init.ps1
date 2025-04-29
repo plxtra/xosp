@@ -1,15 +1,14 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String[]] $ClientIds,
-	[String[]] $MarketAssociations = @(),
-	[String] $ClientAssetType = "CLIENT",
-	[String] $MarketAssetType = "MARKET"
+	[string[]] $ClientIds,
+	[string[]] $MarketAssociations = @(),
+	[string] $ClientAssetType = "CLIENT",
+	[string] $MarketAssetType = "MARKET"
 )
 
 #########################################
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $VaultUri = "http://vault"

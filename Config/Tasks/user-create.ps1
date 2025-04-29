@@ -1,15 +1,15 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $UserName,
-	[String] $Password,
-	[String] $Email,
-	[String] $Currency,
-	[String[]] $Roles = @(),
-	[String[]] $AccountAssociations = @(),
-	[String[]] $MarketAssociations = @(),
-	[String] $UserAssetType = "USER",
-	[String] $AccountAssetType = "TRADINGACCOUNT",
-	[String] $MarketAssetType = "MARKET"
+	[string] $UserName,
+	[string] $Password,
+	[string] $Email,
+	[string] $Currency,
+	[string[]] $Roles = @(),
+	[string[]] $AccountAssociations = @(),
+	[string[]] $MarketAssociations = @(),
+	[string] $UserAssetType = "USER",
+	[string] $AccountAssetType = "TRADINGACCOUNT",
+	[string] $MarketAssetType = "MARKET"
 )
 
 # This script registers a new User with the XOSP system
@@ -18,15 +18,14 @@ param (
 #   - Markets
 #   - Trading Accounts
 
-if (!(Test-Path "/tasks/init-params.ps1"))
+if (!(Test-Path "/tasks/task-params.json"))
 {
 	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
 	exit -1
 }
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $VaultUri = "http://vault"

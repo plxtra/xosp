@@ -1,14 +1,13 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $OwnerCode,
-	[String] $OwnerName,
-	[String] $MarketCode,
-	[String] $ZenithClient,
-	[String] $OmsClient,
-	[String] $FoundryClient
+	[string] $OwnerCode,
+	[string] $OwnerName,
+	[string] $MarketCode,
+	[string] $ZenithClient,
+	[string] $OmsClient,
+	[string] $FoundryClient,
+	[string] $BaseUri = "http://prodigy.internal"
 )
-
-$BaseUri = "http://prodigy.internal"
 
 #########################################
 
@@ -126,8 +125,6 @@ if ($UserExistsResponse.StatusCode -eq 204)
 	
 	exit
 }
-
-Write-Host "Prodigy FIX Session initialising..."
 
 Sync-Entity -BaseUri $BaseUri -EntityCode $OwnerCode -EntityName $OwnerName
 

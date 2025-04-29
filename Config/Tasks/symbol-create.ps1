@@ -1,13 +1,13 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $MarketCode,
-	[String] $SymbolCode,
-	[String] $SymbolName,
-	[String] $IssuerCode,
-	[String] $Currency,
-	[String] $CfiCode = "EXXXXX",
-	[String] $Comments = $null,
-	[String] $Status = $null # Null status means inherit from the market
+	[string] $MarketCode,
+	[string] $SymbolCode,
+	[string] $SymbolName,
+	[string] $IssuerCode,
+	[string] $Currency,
+	[string] $CfiCode = "EXXXXX",
+	[string] $Comments = $null,
+	[string] $Status = $null # Null status means inherit from the market
 )
 
 # This script registers a new Symbol with the XOSP system
@@ -16,15 +16,14 @@ param (
 
 #########################################
 
-if (!(Test-Path "/tasks/init-params.ps1"))
+if (!(Test-Path "/tasks/task-params.json"))
 {
 	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
-	exit
+	exit -1
 }
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"

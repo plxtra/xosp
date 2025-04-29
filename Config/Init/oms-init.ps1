@@ -1,13 +1,12 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $OwnerCode,
-	[String] $OwnerName
+	[string] $OwnerCode,
+	[string] $OwnerName
 )
 
 #########################################
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $OmsControl = "/app/oms/Paritech.OMS2.Control.dll"

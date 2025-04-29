@@ -1,22 +1,21 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $Account, # Format OWNER:ACCOUNT
-	[String] $Currency,
-	[Decimal] $Amount,
-	[Switch] $OnlyWithBalance
+	[string] $Account, # Format OWNER:ACCOUNT
+	[string] $Currency,
+	[decimal] $Amount,
+	[switch] $OnlyWithBalance
 )
 
 # This script deposits an amount of the given currency into an account
 
-if (!(Test-Path "/tasks/init-params.ps1"))
+if (!(Test-Path "/tasks/task-params.json"))
 {
 	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
-	exit
+	exit -1
 }
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"
@@ -32,13 +31,15 @@ if ($OnlyWithBalance)
 	FailWithError "Failed to read OMS balances for Account ${OwnerCode}:${AccountCode}"
 	
 	# Zero balance may be no record, or record with zero balance (but other values non-zero)
-	$KnownBalances = ($BalancesRaw | ConvertFrom-Csv | Where-Object { $_.Currency -eq $Currency } | ForEach-Object { [Decimal]$_.Balance + [Decimal]$_.UnbookedTransactions })
+	$KnownBalances = ($BalancesRaw | ConvertFrom-Csv | Where-Object { $_.Currency -eq $Currency } | ForEach-Object { [Decimal]$_.Balance + [decimal]$_.UnbookedTransactions })
 	
 	if ($null -eq $KnownBalances -or $KnownBalances.Count -eq 0 -or $KnownBalances[0] -lt $Amount)
 	{
 		exit
 	}
 }
+
+Write-Host "Withdrawing $Amount of $Currency from $Account"
 
 if ($UsingFoundry)
 {

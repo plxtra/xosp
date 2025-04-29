@@ -1,9 +1,9 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String[]] $Accounts, # Format OWNER:ACCOUNT
-	[String] $Currency,
-	[Decimal] $Amount,
-	[Switch] $OnlyIfZero
+	[string[]] $Accounts, # Format OWNER:ACCOUNT
+	[string] $Currency,
+	[decimal] $Amount,
+	[switch] $OnlyIfZero
 )
 
 # This script deposits the same amount of a given currency across multiple accounts

@@ -1,27 +1,21 @@
 #Requires -PSEDition Core -Version 7
 
-if (!(Test-Path "XOSP-Params.ps1"))
+$TargetPath = Join-Path $PSScriptRoot "Docker"
+$ParamsSource = Join-Path $TargetPath "Init" "init-params.json"
+
+if (!(Test-Path $ParamsSource))
 {
-	Write-Warning "Unable to find parameters. Ensure XOSP-Params.ps1 exists"
+	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
 	exit
 }
 
-$RootPath = Get-Location
-$SourcePath = Join-Path $RootPath Config # Where to find the configuration source files
-$TargetPath = Join-Path $RootPath Docker # Where to output the prepared configurations
-
-# Execute our various sub-scripts. Dot sourcing to share the execution context and inherit any variables
-. (Join-Path $SourcePath "Init" "init-defaults.ps1")
-. (Join-Path $PSScriptRoot "XOSP-Module.ps1")
-. (Join-Path $PSScriptRoot "XOSP-Params.ps1")
-
-# Apply any transformations we need
-PostParameters
+# Execute our common sub-script. Dot sourcing to share the execution context and inherit any variables
+. (Join-Path $PSScriptRoot "XOSP-Common.ps1") -UseCoreParams
 
 #########################################
 
-$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $DockerEnvironmentFile))
+$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
 #$ComposeArgs += @("--progress", "quiet")
 
 if ($Parameters.ForwardPorts)
@@ -43,6 +37,9 @@ if ($Choice -eq 1)
 
 & docker @ComposeArgs down --volumes
 
-Remove-Item -Path $Parameters.SharedDataPath -Recurse
+if (Test-Path $Parameters.SharedDataPath)
+{
+	Remove-Item -Path $Parameters.SharedDataPath -Recurse
+}
 
 Read-Host -Prompt "XOSP Environment cleared. Press Enter to finish"

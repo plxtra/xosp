@@ -2,7 +2,7 @@
 
 #########################################
 
-if (!(Test-Path "/tasks/init-params.ps1"))
+if (!(Test-Path "/init/init-params.json") -or !(Test-Path "/tasks/task-params.json"))
 {
 	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
@@ -16,14 +16,15 @@ if (!(Test-Path "/init/auth-secrets.csv"))
 	exit -1
 }
 
+# Read in the environment configuration 
+$Parameters = Get-Content "/init/init-params.json" -Raw | ConvertFrom-Json -AsHashtable
+
 # Execute our various sub-scripts. Dot sourcing to share the execution context and inherit any variables
-. "/init/init-defaults.ps1"
-. "/init/init-params.ps1"
 . "/tasks/common.ps1"
 
 #########################################
 
-$SecretsSource = Import-Csv -Path "/init/auth-secrets.csv"
+$SecretsSource = Import-Csv "/init/auth-secrets.csv"
 
 foreach ($Record in $SecretsSource)
 {
@@ -33,6 +34,10 @@ foreach ($Record in $SecretsSource)
 }
 
 #########################################
+
+# TODO: Exercise the REST API to populate the FIX sessions
+#Write-Host "`tFIX Server." -NoNewline
+#& "/init/fix-init.ps1" -OwnerCode $Parameters.MarketOperator -OwnerName $Parameters.MarketOperatorName
 
 # Exercise the REST API to populate the auth configuration and system metadata
 Write-Host "`tOMS Environment." -NoNewline
@@ -58,10 +63,10 @@ Write-Host "`tDefault Market $($Parameters.MarketCode)..."
 & "/tasks/market-create.ps1" -MarketCode $Parameters.MarketCode -MarketDesc $Parameters.MarketName -OwnerCode $Parameters.MarketOperator -TimeZone $Parameters.MarketTimeZone
 FailWithError "Failed to prepare Market."
 
-if ($AutoPopulateSymbols -gt 0)
+if ($Parameters.AutoPopulateSymbols -gt 0)
 {
 	#AutoSymbolList is formatted into a string that we can pass to pwsh -Command and generate a proper string array
-	$AutoSymbolList = & "/tasks/symbol-create-bulk.ps1" -MarketCode $Parameters.MarketCode -StartFrom 1 -Count $AutoPopulateSymbols -SymbolTemplate $AutoPopulateSymbolsTemplate
+	$AutoSymbolList = & "/tasks/symbol-create-bulk.ps1" -MarketCode $Parameters.MarketCode -StartFrom 1 -Count $Parameters.AutoPopulateSymbols -SymbolTemplate $Parameters.AutoPopulateSymbolsTemplate
 	FailWithError "Failed to auto populate symbols."
 }
 else
@@ -72,11 +77,11 @@ else
 #########################################
 
 # Create some initial Trading Accounts
-if ($AutoPopulateAccounts -gt 0)
+if ($Parameters.AutoPopulateAccounts -gt 0)
 {
 	Write-Host "`tDefault Trading Accounts..."
 	#AutoAccountList is formatted into a string that we can pass to pwsh -Command and generate a proper string array
-	$AutoAccountList = & "/tasks/account-create-bulk.ps1" -OwnerCode $Parameters.MarketOperator -StartFrom 1 -Count $AutoPopulateAccounts -AccountTemplate $AutoPopulateAccountTemplate -Currency $Parameters.Currency
+	$AutoAccountList = & "/tasks/account-create-bulk.ps1" -OwnerCode $Parameters.MarketOperator -StartFrom 1 -Count $Parameters.AutoPopulateAccounts -AccountTemplate $Parameters.AutoPopulateAccountTemplate -Currency $Parameters.Currency
 	FailWithError "Failed to auto populate accounts."
 }
 else

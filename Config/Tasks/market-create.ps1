@@ -1,10 +1,10 @@
 #Requires -PSEDition Core -Version 7
 param (
-	[String] $MarketCode,
-	[String] $MarketDesc,
-	[String] $OwnerCode,
-	[String] $TimeZone = "Etc/UTC",
-	[String] $Status = "Open"
+	[string] $MarketCode,
+	[string] $MarketDesc,
+	[string] $OwnerCode,
+	[string] $TimeZone = "Etc/UTC",
+	[string] $Status = "Open"
 )
 
 # This script registers a new market with the XOSP system
@@ -15,15 +15,14 @@ param (
 
 #########################################
 
-if (!(Test-Path "/tasks/init-params.ps1"))
+if (!(Test-Path "/tasks/task-params.json"))
 {
 	Write-Warning "Unable to find parameters. Did you run XOSP-Configure.ps1 first?"
 	
-	exit
+	exit -1
 }
 
-# Execute the Shared Module script
-. "/tasks/init-params.ps1"
+# Execute the shared tasks code
 . "/tasks/common.ps1"
 
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"

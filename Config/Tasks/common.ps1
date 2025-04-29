@@ -1,6 +1,13 @@
-#Requires -PSEDition Core -Version 7
+# Grab our parameters and expand them out into variables
+$private:TaskParameters = Get-Content "/tasks/task-params.json" -Raw | ConvertFrom-Json -AsHashtable
+
+foreach ($Pair in $private:TaskParameters.GetEnumerator())
+{
+	Set-Variable -Name $Pair.Key -Value $Pair.Value
+}
 
 #########################################
+# General methods
 
 function FailWithError([string] $Text)
 {
@@ -13,6 +20,7 @@ function FailWithError([string] $Text)
 
 #########################################
 # Auth Server
+
 function Get-AccessToken
 {
 	param (
