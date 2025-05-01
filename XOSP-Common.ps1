@@ -40,7 +40,6 @@ else
 	}
 	elseif ($IsMacOS)
 	{
-		$private:Defaults.SharedDataPath = "~/Plxtra/XOSP"
 		$private:Defaults.ForwardPorts = $true
 		$private:Defaults.SslPort = 8043
 	}
