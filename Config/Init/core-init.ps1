@@ -24,6 +24,39 @@ $Parameters = Get-Content "/init/init-params.json" -Raw | ConvertFrom-Json -AsHa
 
 #########################################
 
+$Extensions = @()
+$ExtensionPath = "/init/Extensions" # Where to find any extensions
+
+if ($null -ne $Parameters.Extensions -and $Parameters.Extensions.Count -gt 0 -and (Test-Path $ExtensionPath))
+{
+	$ExtensionFactories = @{}
+
+	# Detect and create the extension factories
+	foreach ($ExtensionFile in (Get-ChildItem (Join-Path $ExtensionPath "*") -File -Include @("*.ps1") | Foreach-Object { $_.FullName }))
+	{
+		$Factory = & $ExtensionFile
+
+		$ExtensionFactories[$Factory.Name] = $Factory
+	}
+
+	# Instantiate each extension by name
+	foreach ($Settings in $Parameters.Extensions.GetEnumerator())
+	{
+		$Factory = $ExtensionFactories[$Settings.Name]
+
+		if ($null -eq $Factory)
+		{
+			Write-Host "Extension $($Settings.Name) does not exist"
+
+			exit
+		}
+
+		$Extensions += $Factory.Create($Settings)
+	}
+}
+
+#########################################
+
 $SecretsSource = Import-Csv "/init/auth-secrets.csv"
 
 foreach ($Record in $SecretsSource)
@@ -94,10 +127,19 @@ else
 # Create an initial login, associating the Trading Accounts and Market from above
 #$AdminRoles = @("Zenith$($Parameters.AuthSuffix):Administrator")
 $AdminRoles = @()
+$Markets = @($Parameters.MarketCode)
+$SampleMarkets = @()
+
+# Include any extensions
+foreach ($Extension in $Extensions)
+{
+	$Markets += $Extension.GetMarkets()
+	$SampleMarkets += $Extension.GetSampleMarkets()
+}
 
 Write-Host "`tAdmin User $($Parameters.AdminUser)." -NoNewline
 
-$UserID = & "/tasks/user-create.ps1" -UserName $Parameters.AdminUser -Password $Parameters.AdminPassword -Email $Parameters.AdminEmail -Currency $Parameters.Currency -AccountAssociations $AutoAccountList -MarketAssociations $Parameters.MarketCode -Roles $AdminRoles
+$UserID = & "/tasks/user-create.ps1" -UserName $Parameters.AdminUser -Password $Parameters.AdminPassword -Email $Parameters.AdminEmail -Currency $Parameters.Currency -AccountAssociations $AutoAccountList -MarketAssociations $Markets -SampleMarketAssociations $SampleMarkets -Roles $AdminRoles
 
 & "/tasks/user-register-foundry.ps1" -UserID $UserID -Features @("Admin", "Audit", "SubmitRecords", "Operations", "Define", "DefineSystem") -Classes @("RegistryOperator")
 

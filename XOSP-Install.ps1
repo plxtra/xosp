@@ -1,7 +1,8 @@
 #Requires -PSEDition Core -Version 7
 
 param(
-	[switch] $AlwaysPull = $false
+	[switch] $AlwaysPull = $false, # True to always pull images from the repository
+	[switch] $SkipInit = $false # True to always skip initialisation, and just create the containers
 )
 
 $TargetPath = Join-Path $PSScriptRoot "Docker"
@@ -107,6 +108,15 @@ if ($AlwaysPull -and -not $ExpectPullThrottling)
 Write-Host "Initialising Docker Containers..."
 & docker @ComposeArgs @CreateArgs
 FailWithError "Unable to create the XOSP containers."
+
+if ($SkipInit)
+{	
+	Write-Host "Installation complete, skipping environment initialisation."
+	
+	& docker @ComposeArgs @UpArgs
+
+	exit
+}
 
 # Does our Postgres DB have any content yet?
 $UsageData = & docker system df --verbose --format json | ConvertFrom-Json
@@ -225,12 +235,12 @@ $RootUri = $Parameters.RootUri
 
 Write-Host "================================================================================"
 
-Write-Host "Configuration complete. The next steps require some manual work:"
+Write-Host "Installation and setup complete. The next steps require some manual work:"
 Write-Host " 1. For DNS resolution, copy the 'hosts' file to your platform-specific hosts file."
 Write-Host "    $(Join-Path $TargetPath `"hosts`")"
 Write-Host " 2. For HTTPS, install the appropriate certificate file into your browser certificate store."
 Write-Host "    $(Join-Path $TargetPath $Parameters.CertificateFile).crt"
-Write-Host "DNS and HTTPS are necessary before you can install or access the platform, as they are required for OAuth login."
+Write-Host "DNS and HTTPS are necessary before you can access the system from a browser, as they are required for OAuth login."
 Write-Host "================================================================================"
 Write-Host "Once complete, the system can be accessed with the login '$($Parameters.AdminUser)' and password '$($Parameters.AdminPassword)'"
 Write-Host "- Trading Terminal: https://motif.${RootUri}/"

@@ -7,9 +7,11 @@ param (
 	[string[]] $Roles = @(),
 	[string[]] $AccountAssociations = @(),
 	[string[]] $MarketAssociations = @(),
+	[string[]] $SampleMarketAssociations = @(),
 	[string] $UserAssetType = "USER",
 	[string] $AccountAssetType = "TRADINGACCOUNT",
-	[string] $MarketAssetType = "MARKET"
+	[string] $MarketAssetType = "MARKET",
+	[string] $SampleMarketAssetType = "SAMPLEMARKET"
 )
 
 # This script registers a new User with the XOSP system
@@ -114,18 +116,25 @@ $AccessToken = Get-AccessToken -AuthUri $TokenService -ClientId $XospClientId -C
 
 Sync-Asset -VaultUri $VaultUri -AccessToken $AccessToken -Asset $UserID -AssetType $UserAssetType
 
-Write-Host "." -NoNewline
-
 if ($AccountAssociations.length -gt 0)
 {
+	Write-Host "." -NoNewline
+	
 	Sync-Associations -VaultUri $VaultUri -AccessToken $AccessToken -ParentAsset $UserID -ParentAssetType $UserAssetType -ChildAssetType $AccountAssetType -ChildAssets $AccountAssociations
 }
 
-Write-Host "." -NoNewline
-
 if ($MarketAssociations.length -gt 0)
 {
+	Write-Host "." -NoNewline
+	
 	Sync-Associations -VaultUri $VaultUri -AccessToken $AccessToken -ParentAsset $UserID -ParentAssetType $UserAssetType -ChildAssetType $MarketAssetType -ChildAssets $MarketAssociations
+}
+
+if ($SampleMarketAssociations.length -gt 0)
+{
+	Write-Host "." -NoNewline
+	
+	Sync-Associations -VaultUri $VaultUri -AccessToken $AccessToken -ParentAsset $UserID -ParentAssetType $UserAssetType -ChildAssetType $SampleMarketAssetType -ChildAssets $SampleMarketAssociations
 }
 
 Write-Host "."

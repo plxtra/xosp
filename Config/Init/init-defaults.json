@@ -46,6 +46,7 @@
 	"AutoPopulateAccountTemplate":"D4", // .Net format string for generating account names from numbers
 
 	"AutoPopulateSymbols": 10,
-	"AutoPopulateSymbolsTemplate":"'XS'00" // .Net format string for generating account names from numbers
+	"AutoPopulateSymbolsTemplate":"'XS'00", // .Net format string for generating account names from numbers
 
+	"Extensions": []
 }

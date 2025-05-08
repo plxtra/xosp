@@ -172,12 +172,7 @@ services:
         target: /app/appsettings.${ENVIRONMENT}.json
     volumes:
       - ${SHARED_DATA}/Holiday:/usr/share/MotifMarkets/MotifMarkets.MarketHoliday.Web
-    healthcheck:
-      test: curl --fail http://localhost/health || exit 1
-      interval: 1m
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
 
   # Motif
   motif.web:
