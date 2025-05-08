@@ -1,5 +1,9 @@
 #Requires -PSEDition Core -Version 7
 
+param(
+	[switch] $NoHeader
+)
+
 $TargetPath = Join-Path $PSScriptRoot "Docker"
 $ParamsSource = Join-Path $TargetPath "Init" "init-params.json"
 
@@ -26,4 +30,11 @@ if ($Parameters.ForwardPorts)
 
 $RunArgs = @("run", "-it", "--rm", "--quiet-pull")
 
-& docker @ComposeArgs @RunArgs --entrypoint bash auth @args
+if (-not $NoHeader)
+{
+	Write-Host "Control Terminal for the Plxtra XOSP distribution"
+
+
+}
+
+& docker @ComposeArgs @RunArgs --entrypoint bash control @args

@@ -10,15 +10,18 @@ $XospVersion = 0.9
 
 #########################################
 
-$SourcePath = Join-Path $PSScriptRoot Config # Where to find the configuration source files
-$TargetPath = Join-Path $PSScriptRoot Docker # Where to output the prepared configurations
+$SourcePath = Join-Path $PSScriptRoot "Config" # Where to find the configuration source files
+$ExtensionPath = Join-Path $PSScriptRoot "Extensions" # Where to find any extensions
+$TargetPath = Join-Path $PSScriptRoot "Docker" # Where to output the prepared configurations
 $CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json" # Where our compiled configuration goes
 $ParamsPath = Join-Path $PSScriptRoot "XOSP-Params.json" # Where any configuration overrides go
 
+# Check if there's a previously saved set of parameters
 if (Test-Path $CoreParamsPath)
 {
 	$CoreParameters = Get-Content $CoreParamsPath -Raw | ConvertFrom-Json -AsHashtable
 
+	# Just to be sure we have a profile name
 	if ([String]::IsNullOrEmpty($CoreParameters.Profile))
 	{
 		$CoreParameters.Profile = "Default"
@@ -34,7 +37,7 @@ if (Test-Path $CoreParamsPath)
 		elseif (Test-Path $ParamsPath)
 		{
 			# Profile supplied, and is different, so we want to reset to the new profile
-			Write-Host "Resetting to new profile: $ConfigProfile"
+			Write-Host "Resetting profile."
 
 			Remove-Item $ParamsPath
 			$CoreParameters = $null
@@ -44,6 +47,12 @@ if (Test-Path $CoreParamsPath)
 else
 {
 	$CoreParameters = $null
+
+	# If no profile is specified, use the default
+	if ([String]::IsNullOrEmpty($ConfigProfile))
+	{
+		$ConfigProfile = "Default"
+	}
 }
 
 # If we're reapplying to an existing installation, check if the version has changed
@@ -68,7 +77,7 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 
 		if ($Choice -eq 1 -and (Test-Path $ParamsPath))
 		{
-			Write-Host "Resetting to new profile: $ConfigProfile"
+			Write-Host "Resetting profile."
 
 			Remove-Item $ParamsPath
 			$CoreParameters = $null
@@ -78,12 +87,6 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 
 if (!(Test-Path $ParamsPath))
 {
-	# If no profile is specified, use the default
-	if ([String]::IsNullOrEmpty($ConfigProfile))
-	{
-		$ConfigProfile = "Default"
-	}
-
 	# If there's no active parameters, we want to grab some defaults
 	$ProfilePath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"
 
@@ -94,9 +97,13 @@ if (!(Test-Path $ParamsPath))
 		exit
 	}
 
-	Write-Host "Selecting profile: $ConfigProfile"
+	Write-Host "Applying new profile: $ConfigProfile"
 	
 	Copy-Item -Path $ProfilePath -Destination $ParamsPath
+}
+else
+{
+	Write-Host "Applying existing profile: $ConfigProfile"	
 }
 
 # Execute our common sub-script. Dot sourcing to share the execution context and inherit any variables
@@ -106,6 +113,9 @@ if (!(Test-Path $ParamsPath))
 $CoreParameters = $Parameters.Clone()
 $CoreParameters.Profile = $ConfigProfile
 $CoreParameters.Version = $XospVersion
+
+# Make sure to remove stuff we don't need for replacements
+$Parameters.Remove("Extensions")
 
 #########################################
 
@@ -172,18 +182,18 @@ function Copy-Relative
 
 	Get-ChildItem $SourcePath -Recurse -File -Include $Include -Exclude $Exclude | ForEach-Object {
 		$SourceFile = $_.FullName
-		
+
 		$RelativeFile = [System.IO.Path]::GetRelativePath($SourcePath, $SourceFile)
-		
+
 		$TargetFile = Join-Path $TargetPath $RelativeFile
-		
+
 		$TargetFilePath = [System.IO.Path]::GetDirectoryName($TargetFile)
-		
+
 		if (-not (Test-Path $TargetFilePath))
 		{
 			New-Item -Path $TargetFilePath -ItemType Directory > $null
 		}
-		
+
 		Copy-Item $SourceFile $TargetFile
 	}
 }
@@ -231,6 +241,40 @@ if ($Parameters.RegistryUri -match "(?<id>\d+)\.dkr\.ecr\.(?<region>[\w-]+)\.ama
 		Write-Host "Unable to locate AWS CLI. Please ensure you have the AWS CLI tools installed in order to use a private registry."
 
 		exit
+	}
+}
+
+#########################################
+
+$Extensions = @()
+
+if ($null -ne $CoreParameters.Extensions -and $CoreParameters.Extensions.Count -gt 0 -and (Test-Path $ExtensionPath))
+{
+	Write-Host "Detecting Extensions..."
+
+	$ExtensionFactories = @{}
+
+	# Detect and create the extension factories
+	foreach ($ExtensionFile in (Get-ChildItem (Join-Path $ExtensionPath "*") -File -Include @("*.ps1") | Foreach-Object { $_.FullName }))
+	{
+		$Factory = & $ExtensionFile
+
+		$ExtensionFactories[$Factory.Name] = $Factory
+	}
+
+	# Instantiate each extension by name
+	foreach ($Settings in $CoreParameters.Extensions.GetEnumerator())
+	{
+		$Factory = $ExtensionFactories[$Settings.Name]
+
+		if ($null -eq $Factory)
+		{
+			Write-Host "Extension $($Settings.Name) does not exist"
+
+			exit
+		}
+
+		$Extensions += $Factory.Create($Settings)
 	}
 }
 
@@ -529,32 +573,32 @@ if ($true)
 {
 	# Copy the base initdb scripts
 	$DbTargetPath = Join-Path $TargetPath "Database"
-	
+
 	Copy-Relative -SourcePath (Join-Path $SourcePath "Database") -TargetPath $DbTargetPath -Include @("*.sql", "*.sh") -Exclude @("Init*")
-	
+
 	# The system initialisation scripts need to have replacement applied
 	$SourceFiles = Get-ChildItem (Join-Path $SourcePath "Database" "Init") -Recurse -File -Include @("*.sql") | ForEach-Object { $_.FullName }
 
 	foreach ($SourceFile in $SourceFiles)
 	{
 		$RelativeFile = [System.IO.Path]::GetRelativePath($SourcePath, $SourceFile)
-		
+
 		$TargetFile = Join-Path $TargetPath $RelativeFile
-		
+
 		$TargetFilePath = [System.IO.Path]::GetDirectoryName($TargetFile)
-		
+
 		if (-not (Test-Path $TargetFilePath))
 		{
 			New-Item -Path $TargetFilePath -ItemType Directory > $null
 		}
-		
+
 		Copy-WithReplace $SourceFile $TargetFile $Parameters
-	}	
-	
+	}
+
 	# Generate the credentials file, which will get loaded by the script and used for user and database creation
 	# We want a format supported by 'declare' in bash, otherwise we'd just provide the DbCredentials.csv
 	$TargetFile = Join-Path $DbTargetPath "credentials"
-	
+
 	$OutputFile = [System.IO.File]::CreateText($TargetFile)
 	$OutputFile.NewLine = "`n" # Needs the Unix newline, as it'll be read inside a linux container
 
@@ -566,18 +610,18 @@ if ($true)
 			{
 				continue
 			}
-			
+
 			$Database = $Record.Key.ToUpper()
 			$DbName = $Record.Value.Name
 			$DbUser = $Record.Value.User
 			$DbPass = $Record.Value.Password
-			
+
 			# Whitespace is not allowed around the = sign
 			$OutputFile.WriteLine("DBNAME_$Database=$DbName")
 			$OutputFile.WriteLine("DBUSER_$Database=$DbUser")
 			$OutputFile.WriteLine("DBPASS_$Database=$DbPass")
 		}
-		
+
 		$OutputFile.Close()
 	}
 	finally
@@ -587,7 +631,7 @@ if ($true)
 
 	# Generate the init parameters file, which will get loaded inside docker during environment setup
 	$CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json"
-	$CoreParameters | ConvertTo-Json | Set-Content $CoreParamsPath
+	$CoreParameters | ConvertTo-Json -Depth 100 | Set-Content $CoreParamsPath
 
 	# Generate the task parameters file, which will get loaded by various administrative task scripts
 	$TaskParameters = @{
@@ -597,9 +641,25 @@ if ($true)
 		XospClientId = $Parameters['ClientID-XospControl'];
 		XospClientSecret = $Parameters['ClientSecret-XospControl']
 	}
-	
+
 	$TaskParamsPath = Join-Path $TargetPath "Tasks" "task-params.json"
-	$TaskParameters | ConvertTo-Json | Set-Content $TaskParamsPath
+	$TaskParameters | ConvertTo-Json -Depth 100 | Set-Content $TaskParamsPath
+}
+
+#########################################
+
+if ($Extensions.Count -gt 0)
+{
+	Write-Host "Applying $($Extensions.Count) extensions..."
+
+	$ExtensionTargetPath = Join-Path $TargetPath "Init" "Extensions"
+
+	Copy-Relative -SourcePath $ExtensionPath -TargetPath $ExtensionTargetPath
+
+	foreach ($Extension in $Extensions)
+	{
+		$Extension.Configure($TargetPath, $Parameters)
+	}
 }
 
 Read-Host -Prompt "Press Enter to finish"
