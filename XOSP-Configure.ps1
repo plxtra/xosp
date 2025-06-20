@@ -637,9 +637,9 @@ if ($true)
 	$TaskParameters = @{
 		UsingFoundry = $false;
 		TokenService = "https://auth.$($Parameters.RootUri)";
-		AuthSuffix = $Parameters.AuthSuffix;
-		XospClientId = $Parameters['ClientID-XospControl'];
-		XospClientSecret = $Parameters['ClientSecret-XospControl']
+		AuthSuffix = $Parameters.AuthSuffix
+		#XospClientId = $Parameters['ClientID-XospControl'];
+		#XospClientSecret = $Parameters['ClientSecret-XospControl']
 	}
 
 	$TaskParamsPath = Join-Path $TargetPath "Tasks" "task-params.json"

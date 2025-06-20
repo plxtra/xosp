@@ -40,58 +40,85 @@ Write-Host '.' -NoNewline
 
 # Exercise the REST API to configure the registry structure
 # Define Entity Classes
-$RegistryClassID = & dotnet $FoundryControl EntityClass Define XOSP $OperatorEntityID "Registry" -Desc "Security Token Registry" -Meta OmsPurpose Exchange
-$IssuerClassID = & dotnet $FoundryControl EntityClass Define XOSP $OperatorEntityID "Issuer" -Desc "Security Token Issuer"
-$InvestorClassID = & dotnet $FoundryControl EntityClass Define XOSP $OperatorEntityID "Investor" -Desc "Investing Entity"
-$AccountClassID = & dotnet $FoundryControl EntityClass Define XOSP $OperatorEntityID "TradingAccount" -Desc "Investor Trading Account"
+$RegistryClassID, $IssuerClassID, $InvestorClassID, $AccountClassID = ($Job = @(
+	@{Owner=$OperatorEntityID; Name="Registry";       Desc="Security Token Registry";  Meta=@{OmsPurpose="Exchange"}},
+	@{Owner=$OperatorEntityID; Name="Issuer";         Desc="Security Token Issuer";    Meta=@{}},
+	@{Owner=$OperatorEntityID; Name="Investor";       Desc="Investing Entity";         Meta=@{}},
+	@{Owner=$OperatorEntityID; Name="TradingAccount"; Desc="Investor Trading Account"; Meta=@{}}
+) | ForEach-Object -Parallel {
+	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
+	& dotnet $using:FoundryControl EntityClass Define XOSP $_.Owner $_.Name -Desc $_.Desc @MetaParams
+} -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } # Do some juggling to ensure our results come out in order
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define Asset Classes
-$CurrencyClassID = & dotnet $FoundryControl AssetClass Define XOSP $OperatorEntityID "Currency" -Desc "Currency"
-$TokenClassID = & dotnet $FoundryControl AssetClass Define XOSP $OperatorEntityID "Token" -Desc "Security Token"
+$CurrencyClassID, $TokenClassID = ($Job = @(
+	@{Owner=$OperatorEntityID; Name="Currency";       Desc="Currency"},
+	@{Owner=$OperatorEntityID; Name="Token";          Desc="Security Token"}
+) | ForEach-Object -Parallel {
+	& dotnet $using:FoundryControl AssetClass Define XOSP $_.Owner $_.Name -Desc $_.Desc
+} -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } # Do some juggling to ensure our results come out in order
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define Entity Associations
-& dotnet $FoundryControl EntityAssociation Define XOSP $IssuerClassID $OperatorClassID "OperatorToIssuer" -Desc "Links Registry Operators and Issuers" -Primary | Out-Null
-& dotnet $FoundryControl EntityAssociation Define XOSP $InvestorClassID $OperatorClassID "OperatorToInvestor" -Desc "Links Registry Operators and Investors" -Primary | Out-Null
-& dotnet $FoundryControl EntityAssociation Define XOSP $RegistryClassID $OperatorClassID "OperatorToRegistry" -Desc "Links Registry Operators and Registries" -Primary | Out-Null
-& dotnet $FoundryControl EntityAssociation Define XOSP $AccountClassID $InvestorClassID "InvestorToAccount" -Desc "Links Investors to Trading Accounts" -Primary | Out-Null
+@(
+	@{Parent=$IssuerClassID;   Child=$OperatorClassID; Name="OperatorToIssuer";   Desc="Links Registry Operators and Issuers"},
+	@{Parent=$InvestorClassID; Child=$OperatorClassID; Name="OperatorToInvestor"; Desc="Links Registry Operators and Investors" },
+	@{Parent=$RegistryClassID; Child=$OperatorClassID; Name="OperatorToRegistry"; Desc="Links Registry Operators and Registries"},
+	@{Parent=$AccountClassID;  Child=$InvestorClassID; Name="InvestorToAccount";  Desc="Links Investors to Trading Accounts"}
+) | ForEach-Object -Parallel {
+	& dotnet $using:FoundryControl EntityAssociation Define XOSP $_.Parent $_.Child $_.Name -Desc $_.Desc -Primary | Out-Null
+}
 
 Write-Host '.' -NoNewline
 
 # Define Asset Associations
-& dotnet $FoundryControl AssetAssociation Define XOSP $CurrencyClassID $OperatorClassID "OperatorToCurrency" -Desc "Links Registry Operators and Currencies" -Parent | Out-Null
-& dotnet $FoundryControl AssetAssociation Define XOSP $TokenClassID $IssuerClassID "IssuerToToken" -Desc "Links Issuers and Security Tokens" -Parent | Out-Null
-& dotnet $FoundryControl AssetAssociation Define XOSP $TokenClassID $RegistryClassID "RegistryToToken" -Desc "Links Token Registries and Security Tokens" -Friend | Out-Null
+@(
+	@{Parent=$CurrencyClassID; Child=$OperatorClassID; Name="OperatorToCurrency"; Desc="Links Registry Operators and Currencies";    Friend=$false},
+	@{Parent=$TokenClassID;    Child=$IssuerClassID;   Name="IssuerToToken";      Desc="Links Issuers and Security Tokens";          Friend=$false},
+	@{Parent=$TokenClassID;    Child=$RegistryClassID; Name="RegistryToToken";    Desc="Links Token Registries and Security Tokens"; Friend=$true} 
+) | ForEach-Object -Parallel {
+	& dotnet $using:FoundryControl AssetAssociation Define XOSP $_.Parent $_.Child $_.Name -Desc $_.Desc ($_.Friend ? "-Friend" : "-Parent") | Out-Null
+}
 
 Write-Host '.' -NoNewline
 
 # Define Asset Attributes
-& dotnet $FoundryControl AssetAttribute Define XOSP $CurrencyClassID String CurrencyCode -Desc "ISO Currency Code" -Meta OmsPurpose CurrencyCode | Out-Null
-& dotnet $FoundryControl AssetAttribute Define XOSP $TokenClassID String Symbol -Desc "Symbol Code" | Out-Null
-& dotnet $FoundryControl AssetAttribute Define XOSP $TokenClassID String ISIN -Desc "ISIN Instrument Identifier" | Out-Null
-& dotnet $FoundryControl AssetAttribute Define XOSP $TokenClassID String PrimaryCurrency -Desc "Primary currency for this Token, as an ISO Currency Code" | Out-Null
+@(
+	@{Parent=$CurrencyClassID; Type="String"; Name="CurrencyCode";    Desc="ISO Currency Code";                                        Meta=@{OmsPurpose="CurrencyCode"}},
+	@{Parent=$TokenClassID;    Type="String"; Name="Symbol";          Desc="Symbol Code";                                              Meta=@{}},
+	@{Parent=$TokenClassID;    Type="String"; Name="ISIN";            Desc="ISIN Instrument Identifier";                               Meta=@{}} 
+	@{Parent=$TokenClassID;    Type="String"; Name="PrimaryCurrency"; Desc="Primary currency for this Token, as an ISO Currency Code"; Meta=@{}} 
+) | ForEach-Object -Parallel {
+	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
+	& dotnet $using:FoundryControl AssetAttribute Define XOSP $_.Parent $_.Type $_.Name -Desc $_.Desc @MetaParams | Out-Null
+}
 
 Write-Host '.' -NoNewline
 
 # Define Entity Attributes
-& dotnet $FoundryControl EntityAttribute Define XOSP $OperatorClassID String OmsOwner -Desc "The OMS EntityCode to match in Execution Reports for this Operator" | Out-Null
-& dotnet $FoundryControl EntityAttribute Define XOSP $InvestorClassID String Country -Desc "Investor ISO Country Code" | Out-Null
-& dotnet $FoundryControl EntityAttribute Define XOSP $InvestorClassID String PIIHash -Desc "Investor Personally Identifiable Information Hash" | Out-Null
-& dotnet $FoundryControl EntityAttribute Define XOSP $InvestorClassID String FullName -Desc "Full Legal Name" | Out-Null
-& dotnet $FoundryControl EntityAttribute Define XOSP $IssuerClassID String LEI -Desc "Issuer Legal Entity Identifier" | Out-Null
-& dotnet $FoundryControl EntityAttribute Define XOSP $RegistryClassID String Registry -Desc "Issuing Registry Code" | Out-Null
-& dotnet $FoundryControl EntityAttribute Define XOSP $RegistryClassID String FixExecutingFirm -Desc "The Executing Firm to match in Execution Reports for this registry" | Out-Null
+@(
+	@{Parent=$OperatorClassID; Type="String"; Name="OmsOwner";         Desc="The OMS EntityCode to match in Execution Reports for this Operator"},
+	@{Parent=$InvestorClassID; Type="String"; Name="Country";          Desc="Investor ISO Country Code"},
+	@{Parent=$InvestorClassID; Type="String"; Name="PIIHash";          Desc="Investor Personally Identifiable Information Hash"} 
+	@{Parent=$InvestorClassID; Type="String"; Name="FullName";         Desc="Full Legal Name"} 
+	@{Parent=$IssuerClassID;   Type="String"; Name="LEI";              Desc="Issuer Legal Entity Identifier"},
+	@{Parent=$RegistryClassID; Type="String"; Name="Registry";         Desc="Issuing Registry Code"},
+	@{Parent=$RegistryClassID; Type="String"; Name="FixExecutingFirm"; Desc="The Executing Firm to match in Execution Reports for this registry"} 
+) | ForEach-Object -Parallel {
+	& dotnet $using:FoundryControl EntityAttribute Define XOSP $_.Parent $_.Type $_.Name -Desc $_.Desc | Out-Null
+}
 
 Write-Host '.' -NoNewline
 
 # Define Currencies
-foreach ($Currency in $Currencies.GetEnumerator())
-{
-	$CurrencyID = & dotnet $FoundryControl Asset Define XOSP $CurrencyClassID $Currency.Code -Owner $OperatorEntityID -Desc $Currency.Name
-	& dotnet $FoundryControl Asset Set XOSP $CurrencyID -ByName CurrencyCode $Currency.Code | Out-Null
+$Currencies.GetEnumerator() | ForEach-Object -Parallel {
+	$CurrencyID = & dotnet $using:FoundryControl Asset Define XOSP $using:CurrencyClassID $_.Code -Owner $using:OperatorEntityID -Desc $_.Name
+	& dotnet $using:FoundryControl Asset Set XOSP $CurrencyID -ByName CurrencyCode $_.Code | Out-Null
 }
 
 Write-Host '.' -NoNewline
@@ -102,32 +129,53 @@ Write-Host '.' -NoNewline
 Write-Host '.' -NoNewline
 
 # Define the Ledgers
-$TokenIssueLedgerID = & dotnet $FoundryControl Ledger Define XOSP $OperatorEntityID Equity $TokenIssueName -Asset $TokenClassID -Entity $IssuerClassID -Desc "Security Token Issue" -Meta OmsPurpose Issues
-$HoldingsLedgerID = & dotnet $FoundryControl Ledger Define XOSP $OperatorEntityID Asset $HoldingsName -Asset $TokenClassID -Entity $AccountClassID -Desc "Trading Account Token Holdings" -Meta OmsPurpose Balances
-$BalancesLedgerID = & dotnet $FoundryControl Ledger Define XOSP $OperatorEntityID Asset $BalancesName -Asset $CurrencyClassID -Entity $AccountClassID -Desc "Trading Account Cash Balances" -Meta OmsPurpose Holdings
-$DepositsLedgerID = & dotnet $FoundryControl Ledger Define XOSP $OperatorEntityID Liability $DepositsName -Asset $CurrencyClassID -Entity $OperatorClassID -Desc "Investor Cash Deposits" -Meta OmsPurpose Deposits
+$Ledgers = @{}
+($Job = @(
+	@{Parent=$OperatorEntityID; Class="Equity";    Name="TokenIssue";   Asset=$TokenClassID;    Entity=$IssuerClassID;   Desc="Security Token Issue";           Meta=@{OmsPurpose="Issues"}},
+	@{Parent=$OperatorEntityID; Class="Asset";     Name="Holdings";     Asset=$TokenClassID;    Entity=$AccountClassID;  Desc="Trading Account Token Holdings"; Meta=@{OmsPurpose="Balances"}},
+	@{Parent=$OperatorEntityID; Class="Asset";     Name="Balances";     Asset=$CurrencyClassID; Entity=$AccountClassID;  Desc="Trading Account Cash Balances";  Meta=@{OmsPurpose="Holdings"}} 
+	@{Parent=$OperatorEntityID; Class="Liability"; Name="CashDeposits"; Asset=$CurrencyClassID; Entity=$OperatorClassID; Desc="Investor Cash Deposits";         Meta=@{OmsPurpose="Deposits"}} 
+) | ForEach-Object -Parallel {
+	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
+	$LedgerID = & dotnet $using:FoundryControl Ledger Define XOSP $_.Parent $_.Class $_.Name -Asset $_.Asset -Entity $_.Entity -Desc $_.Desc @MetaParams
+	@{Key=$_.Name;Value=$LedgerID}
+} -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } | ForEach-Object { $Ledgers.Add($_.Key, $_.Value) }
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define the Data Types for the records the system can accept. Tag them for the adapters to recognise
-$TradeTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID FIX ProdigyTrade -Meta FixExecType Trade
-$CancelTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID FIX ProdigyCancellation -Meta FixExecType TradeCancel
-$CorrectTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID FIX ProdigyCorrection
-#$OmsTradeTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID JSON OmsTrade -Meta OmsTradeType Trade
-$ManualCrossHoldingTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID JSON ManualCrossHolding
-$ManualCrossBalanceTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID JSON ManualCrossBalance
-$ManualExternalTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID JSON ManualExternal
-$ManualIssueTypeID = & dotnet $FoundryControl Type Define XOSP $OperatorEntityID $OperatorClassID JSON ManualIssue
+$DataTypes = @{}
+($Job = @(
+	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="FIX";  Name="ProdigyTrade";        Meta=@{FixExecType="Trade"}},
+	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="FIX";  Name="ProdigyCancellation"; Meta=@{FixExecType="TradeCancel"}},
+	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="FIX";  Name="ProdigyCorrection";   Meta=@{}},
+	#@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="JSON"; Name="OmsTrade";            Meta=@{OmsTradeType="Trade"}},
+	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="JSON"; Name="ManualCrossHolding";  Meta=@{}},
+	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="JSON"; Name="ManualCrossBalance";  Meta=@{}},
+	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="JSON"; Name="ManualExternal";      Meta=@{}},
+	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="JSON"; Name="ManualIssue";         Meta=@{}}
+) | ForEach-Object -Parallel {
+	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
+	$DataTypeID = & dotnet $using:FoundryControl Type Define XOSP $_.Owner $_.Class $_.Type $_.Name @MetaParams
+	@{Key=$_.Name;Value=$DataTypeID}
+} -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } | ForEach-Object { $DataTypes.Add($_.Key, $_.Value) }
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define the Execution Strategies
-& dotnet $FoundryControl Strategy Define XOSP $OperatorEntityID "Prodigy.Trade" "Prodigy Trade Execution" -Ref DataType DataType $TradeTypeID -Ref Balances Ledger $BalancesLedgerID -Ref Holdings Ledger $HoldingsLedgerID | Out-Null
-& dotnet $FoundryControl Strategy Define XOSP $OperatorEntityID "Prodigy.TradeCancel" "Prodigy Trade Cancellation" -Ref DataType DataType $CancelTypeID -Ref Balances Ledger $BalancesLedgerID -Ref Holdings Ledger $HoldingsLedgerID | Out-Null
-& dotnet $FoundryControl Strategy Define XOSP $OperatorEntityID "Prodigy.TradeCorrect" "Prodigy Trade Correction" -Ref DataType DataType $CorrectTypeID -Ref Balances Ledger $BalancesLedgerID -Ref Holdings Ledger $HoldingsLedgerID | Out-Null
-& dotnet $FoundryControl Strategy Define XOSP $OperatorEntityID "Standard.Cross" "Manual Holdings Transfer" -Ref DataType DataType $ManualCrossHoldingTypeID -Ref Balances Ledger $HoldingsLedgerID -Meta ToOms True | Out-Null
-& dotnet $FoundryControl Strategy Define XOSP $OperatorEntityID "Standard.Cross" "Manual Balance Transfer" -Ref DataType DataType $ManualCrossBalanceTypeID -Ref Balances Ledger $BalancesLedgerID -Meta ToOms True | Out-Null
-& dotnet $FoundryControl Strategy Define XOSP $OperatorEntityID "Standard.External" "Manual External Transfer" -Ref DataType DataType $ManualExternalTypeID -Ref Balances Ledger $BalancesLedgerID -Ref Deposits Ledger $DepositsLedgerID -Ref ContraEntity Entity $OperatorEntityID -Meta ToOms True | Out-Null
-& dotnet $FoundryControl Strategy Define XOSP $OperatorEntityID "Standard.Issue" "Manual Token Issue" -Ref DataType DataType $ManualIssueTypeID -Ref Investor Ledger $HoldingsLedgerID -Ref Issuer Ledger $TokenIssueLedgerID -Meta ToOms True | Out-Null
-
+@(
+	@{Parent=$OperatorEntityID; Type="Prodigy.Trade";        Name="Prodigy Trade Execution";    Ref=@(@{Name="DataType"; Type="DataType"; ID=$DataTypes.ProdigyTrade},        @{Name="Balances"; Type="Ledger"; ID=$Ledgers.Balances}, @{Name="Holdings"; Type="Ledger"; ID=$Ledgers.Holdings});                                                                  Meta=@{}},
+	@{Parent=$OperatorEntityID; Type="Prodigy.TradeCancel";  Name="Prodigy Trade Cancellation"; Ref=@(@{Name="DataType"; Type="DataType"; ID=$DataTypes.ProdigyCancellation}, @{Name="Balances"; Type="Ledger"; ID=$Ledgers.Balances}, @{Name="Holdings"; Type="Ledger"; ID=$Ledgers.Holdings});                                                                  Meta=@{}}
+	@{Parent=$OperatorEntityID; Type="Prodigy.TradeCorrect"; Name="Prodigy Trade Correction";   Ref=@(@{Name="DataType"; Type="DataType"; ID=$DataTypes.ProdigyCorrection},   @{Name="Balances"; Type="Ledger"; ID=$Ledgers.Balances}, @{Name="Holdings"; Type="Ledger"; ID=$Ledgers.Holdings});                                                                  Meta=@{}}
+	@{Parent=$OperatorEntityID; Type="Standard.Cross";       Name="Manual Holdings Transfer";   Ref=@(@{Name="DataType"; Type="DataType"; ID=$DataTypes.ManualCrossHolding},  @{Name="Balances"; Type="Ledger"; ID=$Ledgers.Holdings});                                                                                                                           Meta=@{ToOms="True"}}
+	@{Parent=$OperatorEntityID; Type="Standard.Cross";       Name="Manual Balance Transfer";    Ref=@(@{Name="DataType"; Type="DataType"; ID=$DataTypes.ManualCrossBalance},  @{Name="Balances"; Type="Ledger"; ID=$Ledgers.Balances});                                                                                                                           Meta=@{ToOms="True"}}
+	@{Parent=$OperatorEntityID; Type="Standard.External";    Name="Manual External Transfer";   Ref=@(@{Name="DataType"; Type="DataType"; ID=$DataTypes.ManualExternal},      @{Name="Balances"; Type="Ledger"; ID=$Ledgers.Balances}, @{Name="Deposits"; Type="Ledger"; ID=$Ledgers.CashDeposits}, @{Name="ContraEntity"; Type="Entity"; ID=$OperatorEntityID}); Meta=@{ToOms="True"}}
+	@{Parent=$OperatorEntityID; Type="Standard.Issue";       Name="Manual Token Issue";         Ref=@(@{Name="DataType"; Type="DataType"; ID=$DataTypes.ManualIssue},         @{Name="Investor"; Type="Ledger"; ID=$Ledgers.Holdings}, @{Name="Issuer"; Type="Ledger"; ID=$Ledgers.TokenIssue});                                                                  Meta=@{ToOms="True"}}
+) | ForEach-Object -Parallel {
+	$ExtraParams = $_.Ref.GetEnumerator() | ForEach-Object { @("-Ref", $_.Name, $_.Type, $_.ID)}
+	$ExtraParams += $_.Meta.GetEnumerator() | ForEach-Object { @("-Meta", $_.Key, $_.Value)}
+	& dotnet $using:FoundryControl Strategy Define XOSP $_.Parent $_.Type $_.Name @ExtraParams | Out-Null
+}
 Write-Host '.'

@@ -7,150 +7,6 @@ $SourcePath = $PSScriptRoot
 
 #########################################
 
-function Sync-Client
-{
-	param (
-		[string] $BaseUri,
-		[string] $ClientId,
-		[string] $ClientSecret,
-		[string[]] $Permissions,
-		[string] $DisplayName = "",
-		[string] $Consent = "explicit",
-		[string[]] $Uris = @(),
-		[string[]] $LogoutUris = @(),
-		[string[]] $Requirements = @(),
-		[bool] $Confidential
-	)
-	
-	$Body = @{
-		"ClientId" = $ClientId; "ClientSecret" = $ClientSecret; "DisplayName" = $DisplayName;
-		"Permissions" = $Permissions;  "Requirements" = $Requirements; "RedirectUris" = $Uris; "PostLogoutRedirectUris" = $LogoutUris;
-		"ConsentType" = $Consent; "ClientType" = $Confidential ? "confidential" : "public"
-		} | ConvertTo-Json
-	
-	$Response = Invoke-WebRequest -Uri "$BaseUri/client?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
-
-	if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
-	{
-		Write-Warning "Failure creating Client Application ${ClientId}: $($Response.StatusCode)"
-		Write-Host $Response.Content
-		
-		exit -1
-	}
-	
-	$RegexMatch = [Regex]::Match($Response.Headers.Location, "([\da-f\-]+)$")
-	
-	if (-not $RegexMatch.Success)
-	{
-		Write-Warning "Failure locating Client Application ${ClientId}: $($Response.Headers.Location)"
-		
-		exit -1
-	}
-	
-	$ClientUID = $RegexMatch.Value
-	
-	return $ClientUID
-}
-
-function Sync-Role
-{
-	param (
-		[string] $BaseUri,
-		[string] $Name,
-		[string[]] $ClaimTypes,
-		[string[]] $ClaimValues
-	)
-	
-	$Body = @{
-		"Name" = $Name
-		} | ConvertTo-Json
-	
-	$Response = Invoke-WebRequest -Uri "$BaseUri/role?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
-
-	if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
-	{
-		Write-Warning "Failure creating User Role ${Name}: $($Response.StatusCode)"
-		Write-Host $Response.Content
-		
-		exit -1
-	}
-	
-	$RegexMatch = [Regex]::Match($Response.Headers.Location, "([\da-f\-]+)$")
-	
-	if (-not $RegexMatch.Success)
-	{
-		Write-Warning "Failure locating User Role ${Name}: $($Response.Headers.Location)"
-		
-		exit -1
-	}
-	
-	$RoleUID = $RegexMatch.Value
-	
-	if ($Response.StatusCode -ne 302)
-	{
-		# Role was newly created, so populate
-		for ($Index = 0; $Index -lt $ClaimTypes.Count; $Index++)
-		{
-			$ClaimType = [Uri]::EscapeDataString($ClaimTypes[$Index])
-			$ClaimValue = [Uri]::EscapeDataString($ClaimValues[$Index])
-			
-			$Response = Invoke-WebRequest -Uri "$BaseUri/role/byid/$RoleUID/claim/$ClaimType" -Method Post -ContentType "text/plain" -Body $ClaimValue -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
-			
-			if ($Response.StatusCode -ne 204)
-			{
-				Write-Warning "Failure creating User Role ${Name}, Claim ${ClaimType}: $($Response.StatusCode)"
-				Write-Host $Response.Content
-				
-				exit -1
-			}
-		
-		}
-	}
-	
-	return $RoleUID
-}
-
-function Sync-Scope
-{
-	param (
-		[string] $BaseUri,
-		[string] $Name,
-		[string] $DisplayName = "",
-		[string] $Description = "",
-		[string[]] $Resources
-	)
-	
-	$Body = @{
-		"Name" = $Name; "DisplayName" = $DisplayName; "Description" = $Description;
-		"Resources" = $Resources
-		} | ConvertTo-Json
-	
-	$Response = Invoke-WebRequest -Uri "$BaseUri/scope?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
-
-	if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
-	{
-		Write-Warning "Failure creating OAuth Scope ${Name}: $($Response.StatusCode)"
-		Write-Host $Response.Content
-		
-		exit -1
-	}
-	
-	$RegexMatch = [Regex]::Match($Response.Headers.Location, "([\da-f\-]+)$")
-	
-	if (-not $RegexMatch.Success)
-	{
-		Write-Warning "Failure locating OAuth Scope ${Name}: $($Response.Headers.Location)"
-		
-		exit -1
-	}
-	
-	$ScopeUID = $RegexMatch.Value
-	
-	return $ScopeUID
-}
-
-#########################################
-
 Write-Host "Initialising Authentication Server." -NoNewline
 
 $ClientApplicationsFile = Join-Path $SourcePath "auth-clients.csv"
@@ -189,28 +45,170 @@ $ClaimTypes = $RolesConfiguration | Get-Member -MemberType NoteProperty | Where-
 Write-Host '.' -NoNewline
 
 # Operations will not update existing structures if the definitions have changed, but will add new ones based on their key (Name, UserName, etc)
-foreach ($Scope in $ScopeConfiguration)
-{
+$ScopeConfiguration | ForEach-Object -Parallel {
+	function Sync-Scope
+	{
+		param (
+			[string] $BaseUri,
+			[string] $Name,
+			[string] $DisplayName = "",
+			[string] $Description = "",
+			[string[]] $Resources
+		)
+		
+		$Body = @{
+			"Name" = $Name; "DisplayName" = $DisplayName; "Description" = $Description;
+			"Resources" = $Resources
+			} | ConvertTo-Json
+		
+		$Response = Invoke-WebRequest -Uri "$BaseUri/scope?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+
+		if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
+		{
+			Write-Warning "Failure creating OAuth Scope ${Name}: $($Response.StatusCode)"
+			Write-Host $Response.Content
+			
+			exit -1
+		}
+		
+		$RegexMatch = [Regex]::Match($Response.Headers.Location, "([\da-f\-]+)$")
+		
+		if (-not $RegexMatch.Success)
+		{
+			Write-Warning "Failure locating OAuth Scope ${Name}: $($Response.Headers.Location)"
+			
+			exit -1
+		}
+		
+		$ScopeUID = $RegexMatch.Value
+		
+		return $ScopeUID
+	}
+
+	$Scope = $_
 	$Resources = $Scope.Resources -split ' '
 	
-	Sync-Scope -BaseUri $BaseUri -Name $Scope.Scope -DisplayName $Scope.DisplayName -Description $Scope.Description -Resources $Resources | Out-Null
+	Sync-Scope -BaseUri $using:BaseUri -Name $Scope.Scope -DisplayName $Scope.DisplayName -Description $Scope.Description -Resources $Resources | Out-Null
 }
 
 Write-Host '.' -NoNewline
 
-foreach ($Role in $RolesConfiguration)
-{
-	$ClaimValues = $ClaimTypes | Select-Object { $Role[$_] }
+$RolesConfiguration | ForEach-Object -Parallel {
+	function Sync-Role
+	{
+		param (
+			[string] $BaseUri,
+			[string] $Name,
+			[string[]] $ClaimTypes,
+			[string[]] $ClaimValues
+		)
+		
+		$Body = @{
+			"Name" = $Name
+			} | ConvertTo-Json
+		
+		$Response = Invoke-WebRequest -Uri "$BaseUri/role?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+
+		if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
+		{
+			Write-Warning "Failure creating User Role ${Name}: $($Response.StatusCode)"
+			Write-Host $Response.Content
+			
+			exit -1
+		}
+		
+		$RegexMatch = [Regex]::Match($Response.Headers.Location, "([\da-f\-]+)$")
+		
+		if (-not $RegexMatch.Success)
+		{
+			Write-Warning "Failure locating User Role ${Name}: $($Response.Headers.Location)"
+			
+			exit -1
+		}
+		
+		$RoleUID = $RegexMatch.Value
+		
+		if ($Response.StatusCode -ne 302)
+		{
+			# Role was newly created, so populate
+			for ($Index = 0; $Index -lt $ClaimTypes.Count; $Index++)
+			{
+				$ClaimType = [Uri]::EscapeDataString($ClaimTypes[$Index])
+				$ClaimValue = [Uri]::EscapeDataString($ClaimValues[$Index])
+				
+				$Response = Invoke-WebRequest -Uri "$BaseUri/role/byid/$RoleUID/claim/$ClaimType" -Method Post -ContentType "text/plain" -Body $ClaimValue -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+				
+				if ($Response.StatusCode -ne 204)
+				{
+					Write-Warning "Failure creating User Role ${Name}, Claim ${ClaimType}: $($Response.StatusCode)"
+					Write-Host $Response.Content
+					
+					exit -1
+				}
+			
+			}
+		}
+		
+		return $RoleUID
+	}
+
+	$Role = $_
+	$ClaimValues = $using:ClaimTypes | Select-Object { $Role[$_] }
 	
-	Sync-Role -BaseUri $BaseUri -Name $Role.Role -ClaimTypes $ClaimTypes -ClaimValues $ClaimValues | Out-Null
+	Sync-Role -BaseUri $using:BaseUri -Name $Role.Role -ClaimTypes $using:ClaimTypes -ClaimValues $ClaimValues | Out-Null
 }
 
 Write-Host '.' -NoNewline
 
-foreach ($Application in $ClientApplications)
-{
+$ClientApplications | ForEach-Object -Parallel {
+	function Sync-Client
+	{
+		param (
+			[string] $BaseUri,
+			[string] $ClientId,
+			[string] $ClientSecret,
+			[string[]] $Permissions,
+			[string] $DisplayName = "",
+			[string] $Consent = "explicit",
+			[string[]] $Uris = @(),
+			[string[]] $LogoutUris = @(),
+			[string[]] $Requirements = @(),
+			[bool] $Confidential
+		)
+		
+		$Body = @{
+			"ClientId" = $ClientId; "ClientSecret" = $ClientSecret; "DisplayName" = $DisplayName;
+			"Permissions" = $Permissions;  "Requirements" = $Requirements; "RedirectUris" = $Uris; "PostLogoutRedirectUris" = $LogoutUris;
+			"ConsentType" = $Consent; "ClientType" = $Confidential ? "confidential" : "public"
+			} | ConvertTo-Json
+		
+		$Response = Invoke-WebRequest -Uri "$BaseUri/client?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+
+		if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
+		{
+			Write-Warning "Failure creating Client Application ${ClientId}: $($Response.StatusCode)"
+			Write-Host $Response.Content
+			
+			exit -1
+		}
+		
+		$RegexMatch = [Regex]::Match($Response.Headers.Location, "([\da-f\-]+)$")
+		
+		if (-not $RegexMatch.Success)
+		{
+			Write-Warning "Failure locating Client Application ${ClientId}: $($Response.Headers.Location)"
+			
+			exit -1
+		}
+		
+		$ClientUID = $RegexMatch.Value
+		
+		return $ClientUID
+	}
+
+	$Application = $_
 	$Name = $Application.Name + $Application.Type
-	$Credentials = $ClientSecrets[$Name]
+	$Credentials = ($using:ClientSecrets)[$Name]
 	
 	$Permissions = $Application.Permissions -split ' '
 	$Requirements = $Application.Requirements -split ' '
@@ -222,7 +220,7 @@ foreach ($Application in $ClientApplications)
 	$Confidential = [Bool]::Parse($Application.Confidential)
 	$ClientSecret = $Confidential ? $Credentials.Secret : $null
 	
-	$ClientID = Sync-Client -BaseUri $BaseUri -ClientId $Credentials.ClientID -ClientSecret $ClientSecret -DisplayName $Application.DisplayName -Permissions $Permissions -Requirements $Requirements -Uris $Uris -LogoutUris $LogoutUris -Confidential $Confidential
+	Sync-Client -BaseUri $using:BaseUri -ClientId $Credentials.ClientID -ClientSecret $ClientSecret -DisplayName $Application.DisplayName -Permissions $Permissions -Requirements $Requirements -Uris $Uris -LogoutUris $LogoutUris -Confidential $Confidential | Out-Null
 }
 
 Write-Host '.'

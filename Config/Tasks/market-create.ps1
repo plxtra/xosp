@@ -27,6 +27,7 @@ if (!(Test-Path "/tasks/task-params.json"))
 
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"
 $ProdigyControl = "/app/prodigy/Paritech.Prodigy.Control.dll"
+$AuthorityControl = "/app/authority/Paritech.Authority.Control.dll"
 
 $MarketType = "Paritech.Prodigy.Model.Standard.StandardMarketModel, Paritech.Prodigy.Model.Standard"
 $EngineType = "Paritech.Prodigy.Engines.Standard.StandardEngineProvider, Paritech.Prodigy.Engines.Standard"
@@ -81,6 +82,9 @@ if (-not ($AllMarketsRaw | ConvertFrom-Csv | Select-Object -ExpandProperty Code)
 	{
 	}
 }
+
+& dotnet $AuthorityControl Asset Define XOSP Market $MarketCode
+FailWithError "Failed to register market Authority asset"
 
 $Result = & dotnet $ProdigyControl SessionMarket Add XOSP XOSP $OwnerCode/ZMD $MarketCode -Verify
 FailWithError "Failed to register market against Session for Zenith"

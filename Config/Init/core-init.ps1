@@ -82,8 +82,8 @@ Write-Host "`tFoundry Environment." -NoNewline
 & "/init/foundry-init.ps1" -OwnerCode $Parameters.MarketOperator -OwnerName $Parameters.MarketOperatorName
 
 # Exercise the REST API to populate the data permissions for Expo
-Write-Host "`tVault Environment." -NoNewline
-& "/init/vault-init.ps1" -ClientIds $Parameters["ClientID-ExpoService"] -MarketAssociations $Parameters.MarketCode
+Write-Host "`tAuthority Environment." -NoNewline
+& "/init/authority-init.ps1" -ClientIds $Parameters["ClientID-ExpoService"] -MarketAssociations $Parameters.MarketCode
 
 # Exercise the REST API to populate the default session permissions
 Write-Host "`tSessions Environment." -NoNewline

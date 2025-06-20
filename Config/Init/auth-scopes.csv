@@ -30,3 +30,5 @@
 "Access to the Watchmaker Internal API","Watchmaker Services","Watchmaker${AuthSuffix}-API","Watchmaker${AuthSuffix}/Service"
 "Access to the Motif User Services API","Motif User Services","Motif${AuthSuffix}-API","Motif${AuthSuffix}/Service"
 "Access to the Foundry Administration Portal","Foundry Administration","Foundry${AuthSuffix}-AdminAPI","Foundry${AuthSuffix}/Admin"
+"Access to the Authority Management Administration API","Authority Management Administration Services","Authority${AuthSuffix}-API","Authority${AuthSuffix}/Admin"
+"Access to the Authority Management API","Authority Management Services","Authority${AuthSuffix}-API","Authority${AuthSuffix}/Service"

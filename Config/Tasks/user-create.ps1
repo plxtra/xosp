@@ -7,11 +7,7 @@ param (
 	[string[]] $Roles = @(),
 	[string[]] $AccountAssociations = @(),
 	[string[]] $MarketAssociations = @(),
-	[string[]] $SampleMarketAssociations = @(),
-	[string] $UserAssetType = "USER",
-	[string] $AccountAssetType = "TRADINGACCOUNT",
-	[string] $MarketAssetType = "MARKET",
-	[string] $SampleMarketAssetType = "SAMPLEMARKET"
+	[string[]] $SampleMarketAssociations = @()
 )
 
 # This script registers a new User with the XOSP system
@@ -30,7 +26,7 @@ if (!(Test-Path "/tasks/task-params.json"))
 # Execute the shared tasks code
 . "/tasks/common.ps1"
 
-$VaultUri = "http://vault"
+$AuthorityControl = "/app/authority/Paritech.Authority.Control.dll"
 
 #########################################
 
@@ -112,29 +108,27 @@ $UserID = Sync-User -AuthUri $TokenService -UserName $UserName -Password $Passwo
 
 Write-Host "." -NoNewline
 
-$AccessToken = Get-AccessToken -AuthUri $TokenService -ClientId $XospClientId -ClientSecret $XospClientSecret
-
-Sync-Asset -VaultUri $VaultUri -AccessToken $AccessToken -Asset $UserID -AssetType $UserAssetType
+& dotnet $AuthorityControl Asset Define XOSP User $UserID
 
 if ($AccountAssociations.length -gt 0)
 {
 	Write-Host "." -NoNewline
-	
-	Sync-Associations -VaultUri $VaultUri -AccessToken $AccessToken -ParentAsset $UserID -ParentAssetType $UserAssetType -ChildAssetType $AccountAssetType -ChildAssets $AccountAssociations
+
+	$AccountAssociations | ForEach-Object { @{ Type = "TradingAccount"; Code = $_ } } | ConvertTo-Csv | & dotnet $AuthorityControl Association Import XOSP User $UserID -StdIn -Format CSV
 }
 
 if ($MarketAssociations.length -gt 0)
 {
 	Write-Host "." -NoNewline
-	
-	Sync-Associations -VaultUri $VaultUri -AccessToken $AccessToken -ParentAsset $UserID -ParentAssetType $UserAssetType -ChildAssetType $MarketAssetType -ChildAssets $MarketAssociations
+
+	$MarketAssociations | ForEach-Object { @{ Type = "Market"; Code = $_ } } | ConvertTo-Csv | & dotnet $AuthorityControl Association Import XOSP User $UserID -StdIn -Format CSV
 }
 
 if ($SampleMarketAssociations.length -gt 0)
 {
 	Write-Host "." -NoNewline
-	
-	Sync-Associations -VaultUri $VaultUri -AccessToken $AccessToken -ParentAsset $UserID -ParentAssetType $UserAssetType -ChildAssetType $SampleMarketAssetType -ChildAssets $SampleMarketAssociations
+
+	$SampleMarketAssociations | ForEach-Object { @{ Type = "Market"; Code = "$_[Sample]" } } | ConvertTo-Csv | & dotnet $AuthorityControl Association Import XOSP User $UserID -StdIn -Format CSV
 }
 
 Write-Host "."

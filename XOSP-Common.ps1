@@ -119,7 +119,7 @@ else
 #########################################
 
 # Create a few arrays that get referenced in multiple places
-$Databases = @("Audit", "Foundry", "Prodigy", "OMS", "Sessions", "Herald", "Doppler", "Watchmaker", "Motif", "MarketHoliday", "Vault")
+$Databases = @("Audit", "Authority", "Doppler", "Foundry", "Herald", "MarketHoliday", "Motif", "OMS", "Prodigy", "Sessions", "Watchmaker")
 $SubDomains = @("arclight", "auth", "expo", "foundry", "iq", "motif", "svc", "ws")
 
 #########################################

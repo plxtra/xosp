@@ -1,8 +1,9 @@
-FROM mcr.microsoft.com/dotnet/runtime:6.0
+FROM mcr.microsoft.com/dotnet/runtime:8.0
 
-COPY --from=mcr.microsoft.com/dotnet/sdk:6.0 /usr/share/powershell /usr/share/powershell
+COPY --from=mcr.microsoft.com/dotnet/sdk:8.0 /usr/share/powershell /usr/share/powershell
 RUN ln -s /usr/share/powershell/pwsh /usr/bin/pwsh
 
+COPY --from=${RegistryUri}${RegistryNamespace}authority-control:latest /app /app/authority
 COPY --from=${RegistryUri}${RegistryNamespace}prodigy-control:latest /app /app/prodigy
 COPY --from=${RegistryUri}${RegistryNamespace}foundry-control:latest /app /app/foundry
 COPY --from=${RegistryUri}${RegistryNamespace}oms-control:latest /app /app/oms

@@ -6,6 +6,7 @@ $ScriptPath = Join-Path $TargetPath "Scripts"
 
 $Projects = @(
 	@{Project = "Paritech.Audit";             User = "audit";         Database = "Audit"},
+	@{Project = "Paritech.Authority";         User = "authority";     Database = "Authority"}
 	@{Project = "Paritech.Foundry";           User = "foundry";       Database = "Foundry"},
 	@{Project = "Paritech.Prodigy";           User = "prodigy";       Database = "Prodigy"},
 	@{Project = "Paritech.OMS2";              User = "oms";           Database = "OMS"},
@@ -14,8 +15,7 @@ $Projects = @(
 	@{Project = "Paritech.Doppler";           User = "doppler";       Database = "Doppler"},
 	@{Project = "Paritech.Watchmaker";        User = "watchmaker";    Database = "Watchmaker"},
 	@{Project = "MotifMarkets.MotifServices"; User = "motif";         Database = "Motif"},
-	@{Project = "MotifMarkets.MarketHoliday"; User = "marketholiday"; Database = "MarketHoliday"},
-	@{Project = "MotifMarkets.Vault";         User = "vault";         Database = "Vault"}
+	@{Project = "MotifMarkets.MarketHoliday"; User = "marketholiday"; Database = "MarketHoliday"}
 	)
 	
 #########################################
@@ -32,7 +32,7 @@ function Build-DbScript
 	# Setup default parameters
 	$InputPath = Join-Path $ProjectPath "Database"
 
-	$ScriptTypes = @("config", "table", "fk", "view", "proc")
+	$ScriptTypes = @("config", "table", "fk", "view", "func", "proc")
 	$Schemas = @()
 	$UseTransaction = $true
 	$Permissions = @(

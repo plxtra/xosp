@@ -105,18 +105,28 @@ if ($AlwaysPull -and -not $ExpectPullThrottling)
 	$CreateArgs += @("--pull", "always")
 }
 
-Write-Host "Initialising Docker Containers..."
-& docker @ComposeArgs @CreateArgs
-FailWithError "Unable to create the XOSP containers."
-
 if ($SkipInit)
-{	
-	Write-Host "Installation complete, skipping environment initialisation."
+{
+	$UpArgs = @("up", "--wait")
+
+	if ($AlwaysPull -and -not $ExpectPullThrottling)
+	{
+		# We don't expect throttling, so we can just pull as part of create and do it all in parallel
+		$UpArgs += @("--pull", "always")
+	}
+
+	Write-Host "Initialising Docker Containers..."
 	
 	& docker @ComposeArgs @UpArgs
 
+	Write-Host "Installation complete, skipping environment initialisation."
+
 	exit
 }
+
+Write-Host "Initialising Docker Containers..."
+& docker @ComposeArgs @CreateArgs
+FailWithError "Unable to create the XOSP containers."
 
 # Does our Postgres DB have any content yet?
 $UsageData = & docker system df --verbose --format json | ConvertFrom-Json
@@ -150,7 +160,7 @@ FailWithError "Unable to initialise the Auth Server database."
 
 Write-Host "Starting Core Application services..."
 # Start all core application services that don't directly connect to anything besides the Auth Server and Support services
-& docker @ComposeArgs @UpArgs audit foundry.hub foundry.proc oms.hub prodigy.archiver prodigy.gateway prodigy.internal prodigy.monitor prodigy.public prodigy.worker sessions vault
+& docker @ComposeArgs @UpArgs audit authority foundry.hub foundry.proc oms.hub prodigy.archiver prodigy.gateway prodigy.internal prodigy.monitor prodigy.public prodigy.worker sessions
 FailWithError "Unable to bring up all core containers."
 
 # REST API is currently incomplete, so we insert the required sessions directly into the database

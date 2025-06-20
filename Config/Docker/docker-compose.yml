@@ -71,6 +71,20 @@ services:
         aliases:
           - ${TOKEN_AUTHORITY}
 
+  authority:
+    <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
+    image: ${DOCKER_REGISTRY}authority-service:${DOCKER_VERSION}
+    command: Paritech.Authority.dll
+    environment:
+      - AUTH_ENVIRONMENT=${ENVIRONMENT}
+    volumes:
+      - ${SHARED_DATA}/Authority:/usr/share/Paritech/Authority
+      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
+      - ./Startup:/startup:ro
+    configs:
+      - source: authority
+        target: /app/appsettings.${ENVIRONMENT}.json
+
   expo:
     <<: [*xosp-common, *xosp-certificate]
     image: ${DOCKER_REGISTRY}expo-web:${DOCKER_VERSION}
@@ -330,20 +344,6 @@ services:
       - source: sessions
         target: /app/appsettings.${ENVIRONMENT}.json
 
-  vault:
-    <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
-    image: ${DOCKER_REGISTRY}vault-restapi:${DOCKER_VERSION}
-    command: MotifMarkets.Vault.RestAPI.dll
-    environment:
-      - VAULT_ENVIRONMENT=${ENVIRONMENT}
-    volumes:
-      - ${SHARED_DATA}/Vault:/usr/share/Paritech/Vault
-      - ${SHARED_DATA}/DataProtection-Keys:/home/app/.aspnet/DataProtection-Keys
-      - ./Startup:/startup:ro
-    configs:
-      - source: vault
-        target: /app/appsettings.${ENVIRONMENT}.json
-
   watchmaker:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
     image: ${DOCKER_REGISTRY}watchmaker-restapi:${DOCKER_VERSION}
@@ -383,6 +383,8 @@ services:
       retries: 5
       start_period: 30s
       start_interval: 2s
+    stdin_open: true
+    tty: true
     depends_on:
       - auth
       - oms.hub
@@ -444,6 +446,8 @@ services:
       - ${SHARED_DATA}/Control:/root/.local/share/Paritech
       - ./Tasks:/tasks:ro
     configs:
+      - source: control.authority
+        target: /app/authority/appsettings.json
       - source: control.foundry
         target: /app/foundry/appsettings.json
       - source: control.oms
@@ -468,6 +472,10 @@ configs:
     file: Auth/appsettings.json
   auth.secrets:
     file: ClientSecrets.csv
+  authority:
+    file: Authority/appsettings.json
+  control.authority:
+    file: Control/authority/appsettings.json
   control.foundry:
     file: Control/foundry/appsettings.json
   control.oms:
@@ -520,8 +528,6 @@ configs:
     file: Prodigy/appsettings.Worker.json
   sessions:
     file: Sessions/appsettings.json
-  vault:
-    file: Vault/appsettings.json
   watchmaker:
     file: Watchmaker/appsettings.json
   zenith.init:
