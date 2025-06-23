@@ -102,7 +102,7 @@ if ($AlwaysPull -and $ExpectPullThrottling)
 }
 
 # Pre-create all our containers at once. We'll bring them up once their dependencies are configured
-$CreateArgs = @("create")
+$CreateArgs = @("create", "--remove-orphans")
 
 if ($AlwaysPull -and -not $ExpectPullThrottling)
 {
@@ -170,13 +170,15 @@ if (Test-Path $UpgradePath)
 
 	foreach ($Processor in $Processors)
 	{
-		Write-Host "`tUpgrading to $($Processor.TargetVersion)..."
+		Write-Host "`tUpgrading to $($Processor.TargetVersion)"
 		
 		$Processor.Upgrade($TargetPath, $Parameters, $ComposeArgs)
 		
 		# Ensure if we fail/abort here, we can resume later from the correct version
 		$Processor.TargetVersion | Set-Content $UpgradePath -NoNewLine
 	}
+
+	Write-Host "`tUpgrade complete, continuing installation"
 
 	Remove-Item $UpgradePath
 }

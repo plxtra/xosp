@@ -22,6 +22,9 @@ if (Test-Path $CoreParamsPath)
 {
 	$CoreParameters = Get-Content $CoreParamsPath -Raw | ConvertFrom-Json -AsHashtable
 
+	# Capture the version early, in case we're also changing profiles during upgrade
+	$UpgradeVersion = $CoreParameters.Version
+
 	# Just to be sure we have a profile name
 	if ([String]::IsNullOrEmpty($CoreParameters.Profile))
 	{
@@ -84,8 +87,6 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 			$CoreParameters = $null
 		}
 	}
-
-	$UpgradeVersion = $CoreParameters.Version
 }
 
 if (!(Test-Path $ParamsPath))
@@ -637,7 +638,7 @@ if ($true)
 	$CoreParameters | ConvertTo-Json -Depth 100 | Set-Content $CoreParamsPath
 
 	# Are we upgrading from a previous version?
-	if ($null -ne $UpgradeVersion)
+	if ($UpgradeVersion -ne $XospVersion)
 	{
 		# Check there's a valid upgrade path
 		$UpgradePath = Join-Path $PSScriptRoot "Upgrades" "upgrade-$UpgradeVersion.ps1"
