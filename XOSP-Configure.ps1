@@ -6,7 +6,7 @@ param(
 	[string] $ConfigProfile
 )
 
-$XospVersion = 0.9
+$XospVersion = 0.91
 
 #########################################
 
@@ -15,6 +15,7 @@ $ExtensionPath = Join-Path $PSScriptRoot "Extensions" # Where to find any extens
 $TargetPath = Join-Path $PSScriptRoot "Docker" # Where to output the prepared configurations
 $CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json" # Where our compiled configuration goes
 $ParamsPath = Join-Path $PSScriptRoot "XOSP-Params.json" # Where any configuration overrides go
+$UpgradeVersion = $null
 
 # Check if there's a previously saved set of parameters
 if (Test-Path $CoreParamsPath)
@@ -83,6 +84,8 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 			$CoreParameters = $null
 		}
 	}
+
+	$UpgradeVersion = $CoreParameters.Version
 }
 
 if (!(Test-Path $ParamsPath))
@@ -632,6 +635,30 @@ if ($true)
 	# Generate the init parameters file, which will get loaded inside docker during environment setup
 	$CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json"
 	$CoreParameters | ConvertTo-Json -Depth 100 | Set-Content $CoreParamsPath
+
+	# Are we upgrading from a previous version?
+	if ($null -ne $UpgradeVersion)
+	{
+		# Check there's a valid upgrade path
+		$UpgradePath = Join-Path $PSScriptRoot "Upgrades" "upgrade-$UpgradeVersion.ps1"
+
+		if (!(Test-Path $UpgradePath))
+		{
+			Write-Warning "No upgrade route exists from version $UpgradeVersion. Run XOSP-Clear.ps1 to reset your environment before installing."
+		}
+		else
+		{
+			$UpgradePath = Join-Path $TargetPath "Init" "upgrade-required"
+
+			# Only replace this file if there isn't an upgrade already queued
+			if (!(Test-Path $UpgradePath))
+			{
+				$UpgradeVersion | Set-Content $UpgradePath -NoNewLine
+				
+				Write-Host "Prepared upgrade from version $UpgradeVersion."
+			}
+		}
+	}
 
 	# Generate the task parameters file, which will get loaded by various administrative task scripts
 	$TaskParameters = @{

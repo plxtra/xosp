@@ -11,12 +11,6 @@ param (
 
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"
 
-# Some default parameters
-$BalancesName = 'Balances'
-$HoldingsName = 'Holdings'
-$DepositsName = 'CashDeposits'
-$TokenIssueName = 'TokenIssue'
-
 $SourcePath = $PSScriptRoot
 $CurrenciesFile = Join-Path $SourcePath "currencies.csv"
 $Currencies = Import-Csv -Path $CurrenciesFile

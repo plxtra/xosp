@@ -2,7 +2,8 @@
 
 param(
 	[switch] $AlwaysPull = $false, # True to always pull images from the repository
-	[switch] $SkipInit = $false # True to always skip initialisation, and just create the containers
+	[switch] $SkipInit = $false, # True to always skip initialisation, and just create the containers
+	[switch] $Verbose = $false
 )
 
 $TargetPath = Join-Path $PSScriptRoot "Docker"
@@ -75,7 +76,11 @@ elseif ($Parameters.RegistryUri -match "public.ecr.aws/(?<id>\w+)")
 
 # "--project-directory", $TargetPath,
 $ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
-#$ComposeArgs += @("--progress", "quiet")
+
+if (-not $Verbose)
+{
+	$ComposeArgs += @("--progress", "quiet")
+}
 
 if ($Parameters.ForwardPorts)
 {
@@ -128,6 +133,56 @@ Write-Host "Initialising Docker Containers..."
 & docker @ComposeArgs @CreateArgs
 FailWithError "Unable to create the XOSP containers."
 
+#########################################
+
+$UpgradePath = Join-Path $TargetPath "Init" "upgrade-required"
+
+if (Test-Path $UpgradePath)
+{
+	$UpgradeVersion = Get-Content -Raw $UpgradePath
+	Write-Host "Upgrading Installation from $UpgradeVersion to $($Parameters.Version)..."
+
+	# Stop containers before running the upgrade procedure
+	& docker @ComposeArgs stop
+
+	$Processors = @()
+	$CurrentVersion = $UpgradeVersion
+
+	while ($CurrentVersion -ne $Parameters.Version)
+	{
+		$UpgradeScriptPath = Join-Path $PSScriptRoot "Upgrades" "upgrade-$CurrentVersion.ps1"
+
+		if (!(Test-Path $UpgradeScriptPath))
+		{
+			Write-Warning "No upgrade route exists from version $CurrentVersion"
+
+			exit -1
+		}
+
+		$Processor = & $UpgradeScriptPath
+
+		$Processors += $Processor
+
+		$CurrentVersion = $Processor.TargetVersion
+	}
+
+	#########################################
+
+	foreach ($Processor in $Processors)
+	{
+		Write-Host "`tUpgrading to $($Processor.TargetVersion)..."
+		
+		$Processor.Upgrade($TargetPath, $Parameters, $ComposeArgs)
+		
+		# Ensure if we fail/abort here, we can resume later from the correct version
+		$Processor.TargetVersion | Set-Content $UpgradePath -NoNewLine
+	}
+
+	Remove-Item $UpgradePath
+}
+
+#########################################
+
 # Does our Postgres DB have any content yet?
 $UsageData = & docker system df --verbose --format json | ConvertFrom-Json
 $PgDataVolumeName = $Parameters.ComposeProject + "_pgdata"
@@ -155,8 +210,6 @@ FailWithError "Unable to bring up all support services."
 # First time we run the control tool, we force a rebuild, since docker won't do it automatically even if the dockerfile changes
 & docker @ComposeArgs @InitArgs --build control "/init/auth-init.ps1"
 FailWithError "Unable to initialise the Auth Server database."
-
-#########################################
 
 Write-Host "Starting Core Application services..."
 # Start all core application services that don't directly connect to anything besides the Auth Server and Support services
