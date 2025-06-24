@@ -20,6 +20,7 @@
     "clientId": "${ClientID-ArclightWeb}",
     "redirectUri": "https://arclight.${RootUri}/auth-callback",
     "silentRedirectUri": "https://arclight.${RootUri}/silent-refresh.html",
+    "postLogoutRedirectUri": "https://arclight.${RootUri}/",
     "scope": "offline_access Zenith${AuthSuffix}/Trading Zenith${AuthSuffix}/Market Zenith${AuthSuffix}/News Zenith${AuthSuffix}/OrderPad Motif${AuthSuffix}/Service"
   },
   "initialWatchlist": [

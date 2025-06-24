@@ -19,6 +19,7 @@
     "clientId": "${ClientID-MotifWeb}",
     "redirectUri": "https://motif.${RootUri}/auth-callback",
     "silentRedirectUri": "https://motif.${RootUri}/silent-refresh.html",
+    "postLogoutRedirectUri": "https://motif.${RootUri}/",
     "scope": "offline_access Zenith${AuthSuffix}/Trading Zenith${AuthSuffix}/Market Zenith${AuthSuffix}/News Zenith${AuthSuffix}/OrderPad Motif${AuthSuffix}/Service"
   },
   "defaultLayout": {
