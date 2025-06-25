@@ -30,6 +30,22 @@
       "market": "${MarketCode}"
     },
     "watchlist": [
+      {
+        "code": "XS01",
+        "market": "${MarketCode}"
+      },
+      {
+        "code": "XS02",
+        "market": "${MarketCode}"
+      },
+      {
+        "code": "BHP",
+        "market": "ASX"
+      },
+      {
+        "code": "CBA",
+        "market": "ASX"
+      }
     ]
   },
   "bundledExtensions": [

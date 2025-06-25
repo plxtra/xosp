@@ -1,10 +1,10 @@
 {
   "configFormatVersion": "2",
-  "configComment": "",
+  "configComment": "Default XOSP configuration",
   "service": {
     "name": "XOSP",
-    "description": "X-Stack Open Source Project",
-    "operator": "Plxtra"
+    "description": "Plxtra XOSP",
+    "operator": "XOSP"
   },
   "endpoints": {
     "motifServices": [
@@ -24,6 +24,10 @@
     "scope": "offline_access Zenith${AuthSuffix}/Trading Zenith${AuthSuffix}/Market Zenith${AuthSuffix}/News Zenith${AuthSuffix}/OrderPad Motif${AuthSuffix}/Service"
   },
   "initialWatchlist": [
+    { "code": "XS01", "market": "XSX" },
+    { "code": "XS02", "market": "XSX" },
+    { "code": "BHP", "market": "ASX" },
+    { "code": "CBA", "market": "ASX" }
   ],
   "diagnostics": {
     "telemetry": {
@@ -66,7 +70,7 @@
         "zenithCode": null,
         "production": false,
         "display": {
-          "en": "XOSP Local Demonstration"
+          "en": "Demo"
         }
       }
     ],
@@ -82,7 +86,7 @@
           "en": "XOSP"
         },
         "fullDisplay": {
-          "en": "${MarketCode}"
+          "en": "${MarketCode} Stock Exchange"
         },
         "defaultLitMarketZenithCode": "${MarketCode}",
         "dataMarkets": [
@@ -121,6 +125,314 @@
             "defaultOrderTimeInForce": "GoodTillCancel",
             "allowedOrderTriggerTypes": ["Immediate"],
             "allowedOrderTradeTypes": ["Buy", "Sell"]
+          }
+        ]
+      },
+      {
+        "zenithCode": "ASX",
+        "symbologyCode": "AX",
+        "defaultSymbolFieldName": "Name",
+        "allowableSymbolNameFields": [
+          "Code", "Name", "Short", "Long"
+        ],
+        "defaultSymbolSearchFields": [
+          "Code", "Name"
+        ],
+        "allowableSymbolSearchFields": [
+          "Code", "Name", "Short", "Long", "Base", "Isin"
+        ],
+        "abbreviatedDisplay": {
+          "en": "ASX"
+        },
+        "fullDisplay": {
+          "en": "Australian Stock Exchange"
+        },
+        "defaultLitMarketZenithCode": "ASX",
+        "dataMarkets": [
+          {
+            "name": "AsxTradeMatch",
+            "zenithCode": "ASX",
+            "symbologyExchangeSuffixCode": "T",
+            "displayPriority": 10,
+            "display": {
+              "en": "ASX TradeMatch"
+            },
+            "boards": [
+              {
+                "name": "AsxTradeMatch",
+                "zenithCode": "ASX",
+                "display": {
+                  "en": "ASX TradeMatch"
+                }
+              },
+              {
+                "name": "AsxTradeMatchAgric",
+                "zenithCode": "ASX::AGRIC",
+                "display": {
+                  "en": "ASX TradeMatch AGRIC"
+                }
+              },
+              {
+                "name": "AsxTradeMatchAus",
+                "zenithCode": "ASX::AUS",
+                "display": {
+                  "en": "ASX TradeMatch AUS"
+                }
+              },
+              {
+                "name": "AsxTradeMatchDerivatives",
+                "zenithCode": "ASX::D",
+                "display": {
+                  "en": "ASX TradeMatch Derivatives Market"
+                }
+              },
+              {
+                "name": "AsxTradeMatchEquity1",
+                "zenithCode": "ASX::EQTY1",
+                "display": {
+                  "en": "ASX TradeMatch Equity Market 1 (A-B)"
+                }
+              },
+              {
+                "name": "AsxTradeMatchEquity2",
+                "zenithCode": "ASX::EQTY2",
+                "display": {
+                  "en": "ASX TradeMatch Equity Market 2 (C-F)"
+                }
+              },
+              {
+                "name": "AsxTradeMatchEquity3",
+                "zenithCode": "ASX::EQTY3",
+                "display": {
+                  "en": "ASX TradeMatch Equity Market 3 (G-M)"
+                }
+              },
+              {
+                "name": "AsxTradeMatchEquity4",
+                "zenithCode": "ASX::EQTY4",
+                "display": {
+                  "en": "ASX TradeMatch Equity Market 4 (N-R)"
+                }
+              },
+              {
+                "name": "AsxTradeMatchEquity5",
+                "zenithCode": "ASX::EQTY5",
+                "display": {
+                  "en": "ASX TradeMatch Equity Market 5 (S-Z)"
+                }
+              },
+              {
+                "name": "AsxTradeMatchIndex",
+                "zenithCode": "ASX::INDEX",
+                "display": {
+                  "en": "ASX TradeMatch Index Market"
+                }
+              },
+              {
+                "name": "AsxTradeMatchIndexDerivatives",
+                "zenithCode": "ASX::INDX",
+                "display": {
+                  "en": "ASX TradeMatch Index Derivatives Market"
+                }
+              },
+              {
+                "name": "AsxTradeMatchInterestRate",
+                "zenithCode": "ASX::IRM",
+                "display": {
+                  "en": "ASX TradeMatch Interest Rate Market"
+                }
+              },
+              {
+                "name": "AsxTradeMatchPrivate",
+                "zenithCode": "ASX::PRV",
+                "display": {
+                  "en": "ASX TradeMatch Private Market"
+                }
+              },
+              {
+                "name": "AsxTradeMatchQuoteDisplayBoard",
+                "zenithCode": "ASX::QDB",
+                "display": {
+                  "en": "ASX TradeMatch Quote Display Board"
+                }
+              },
+              {
+                "name": "AsxTradeMatchPractice",
+                "zenithCode": "ASX::PRAC",
+                "display": {
+                  "en": "ASX TradeMatch Practice Market"
+                }
+              },
+              {
+                "name": "AsxTradeMatchWarrants",
+                "zenithCode": "ASX::WAR",
+                "display": {
+                  "en": "ASX TradeMatch Warrants Market"
+                }
+              }
+            ]
+          },
+          {
+            "name": "AsxTradeMatchCentrePoint",
+            "zenithCode": "ASX::CP",
+            "lit": false,
+            "symbologyExchangeSuffixCode": "C",
+            "display": {
+              "en": "ASX Centre Point"
+            },
+            "boards": [
+              {
+                "name": "AsxTradeMatchCentrePoint",
+                "zenithCode": "ASX::CP",
+                "display": {
+                  "en": "ASX Centre Point"
+                }
+              }
+            ]
+          },
+          {
+            "name": "AsxBookbuild",
+            "zenithCode": "ASX:BB",
+            "symbologyExchangeSuffixCode": "B",
+            "display": {
+              "en": "ASX Bookbuild"
+            },
+            "boards": [
+              {
+                "name": "AsxBookbuild",
+                "zenithCode": "ASX:BB",
+                "display": {
+                  "en": "ASX Bookbuild"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "zenithCode": "CXA",
+        "symbologyCode": "CA",
+        "defaultSymbolFieldName": "Name",
+        "allowableSymbolNameFields": [
+          "Code", "Name"
+        ],
+        "defaultSymbolSearchFields": [
+          "Code", "Name"
+        ],
+        "allowableSymbolSearchFields": [
+          "Code", "Name"
+        ],
+        "abbreviatedDisplay": {
+          "en": "CXA"
+        },
+        "fullDisplay": {
+          "en": "Chi-X Australia"
+        },
+        "dataMarkets": [
+          {
+            "name": "ChixAustLimit",
+            "zenithCode": "CXA::LI",
+            "symbologyExchangeSuffixCode": "L",
+            "display": {
+              "en": "Chi-X Australia Limit Market"
+            },
+            "boards": [
+              {
+                "name": "ChixAustLimit",
+                "zenithCode": "CXA::LI",
+                "display": {
+                  "en": "Chi-X Australia Limit Market"
+                }
+              }
+            ],
+            "symbologySupportedExchanges": [
+              "CXA",
+              "ASX"
+            ]
+          },
+          {
+            "name": "ChixAustFarPoint",
+            "zenithCode": "CXA::FP",
+            "symbologyExchangeSuffixCode": "F",
+            "display": {
+              "en": "Chi-X Australia Far-Point Market"
+            },
+            "boards": [
+              {
+                "name": "ChixAustFarPoint",
+                "zenithCode": "CXA::FP",
+                "display": {
+                  "en": "Chi-X Australia Far-Point Market"
+                }
+              }
+            ],
+            "symbologySupportedExchanges": [
+              "CXA",
+              "ASX"
+            ]
+          },
+          {
+            "name": "ChixAustMarketOnClose",
+            "zenithCode": "CXA::MC",
+            "symbologyExchangeSuffixCode": "M",
+            "display": {
+              "en": "Chi-X Australia Market-on-Close Market"
+            },
+            "boards": [
+              {
+                "name": "ChixAustMarketOnClose",
+                "zenithCode": "CXA::MC",
+                "display": {
+                  "en": "Chi-X Australia Market-on-Close Market"
+                }
+              }
+            ],
+            "symbologySupportedExchanges": [
+              "CXA",
+              "ASX"
+            ]
+          },
+          {
+            "name": "ChixAustMidPoint",
+            "zenithCode": "CXA::MP",
+            "symbologyExchangeSuffixCode": "P",
+            "display": {
+              "en": "Chi-X Australia Mid-Point Market"
+            },
+            "boards": [
+              {
+                "name": "ChixAustMidPoint",
+                "zenithCode": "CXA::MP",
+                "display": {
+                  "en": "Chi-X Australia Mid-Point Market"
+                }
+              }
+            ],
+            "symbologySupportedExchanges": [
+              "CXA",
+              "ASX"
+            ]
+          },
+          {
+            "name": "ChixAustNearPoint",
+            "zenithCode": "CXA::NP",
+            "symbologyExchangeSuffixCode": "N",
+            "display": {
+              "en": "Chi-X Australia Near-Point Market"
+            },
+            "boards": [
+              {
+                "name": "ChixAustNearPoint",
+                "zenithCode": "CXA::NP",
+                "display": {
+                  "en": "Chi-X Australia Near-Point Market"
+                }
+              }
+            ],
+            "symbologySupportedExchanges": [
+              "CXA",
+              "ASX"
+            ]
           }
         ]
       }
