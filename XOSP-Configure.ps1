@@ -503,16 +503,16 @@ if ($Parameters.GenerateCertificate -eq $true)
 		$EnhancedKeyUsages = [System.Security.Cryptography.OidCollection]::new()
 		$EnhancedKeyUsages.Add([System.Security.Cryptography.Oid]::new("1.3.6.1.5.5.7.3.1", "Server Authentication")) > $null
 		
-		$Extensions = [System.Collections.Generic.List[System.Security.Cryptography.X509Certificates.X509Extension]]::new()
-		$Extensions.Add([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false, $false, 0, $false))
-		$Extensions.Add([System.Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new($KeyUsages, $false))
-		$Extensions.Add([System.Security.Cryptography.X509Certificates.X509SubjectKeyIdentifierExtension]::new($CertRequest.PublicKey, $false))
-		$Extensions.Add([System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($EnhancedKeyUsages, $false))
-		$Extensions.Add($AltNames.Build($false))
+		$CertExtensions = [System.Collections.Generic.List[System.Security.Cryptography.X509Certificates.X509Extension]]::new()
+		$CertExtensions.Add([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false, $false, 0, $false))
+		$CertExtensions.Add([System.Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new($KeyUsages, $false))
+		$CertExtensions.Add([System.Security.Cryptography.X509Certificates.X509SubjectKeyIdentifierExtension]::new($CertRequest.PublicKey, $false))
+		$CertExtensions.Add([System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($EnhancedKeyUsages, $false))
+		$CertExtensions.Add($AltNames.Build($false))
 		
-		foreach ($Extension in $Extensions)
+		foreach ($CertExtension in $CertExtensions)
 		{
-			$CertRequest.CertificateExtensions.Add($Extension)
+			$CertRequest.CertificateExtensions.Add($CertExtension)
 		}
 		
 		# Generate the Certificate
@@ -555,7 +555,7 @@ if ($Parameters.GenerateCertificate -eq $true)
 
 #########################################
 
-Write-Host "Preparing Docker Compose files..."
+Write-Host "Preparing Docker Compose files for $($Parameters.RegistryUri)..."
 
 if ($true)
 {

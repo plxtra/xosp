@@ -120,7 +120,7 @@ if ($SkipInit)
 		$UpArgs += @("--pull", "always")
 	}
 
-	Write-Host "Initialising Docker Containers..."
+	Write-Host "Initialising Docker Containers from $($Parameters.RegistryUri)..."
 	
 	& docker @ComposeArgs @UpArgs
 
@@ -129,7 +129,7 @@ if ($SkipInit)
 	exit
 }
 
-Write-Host "Initialising Docker Containers..."
+Write-Host "Initialising Docker Containers from $($Parameters.RegistryUri)..."
 & docker @ComposeArgs @CreateArgs
 FailWithError "Unable to create the XOSP containers."
 
