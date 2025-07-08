@@ -26,7 +26,7 @@ x-xosp-certificate: &xosp-certificate
 services:
   arclight:
     <<: *xosp-common
-    image: ${DOCKER_REGISTRY}arclight-nginx:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}arclight-nginx:${IMAGE_TAG}
     volumes:
       - ./Branding/Common:/app/branding
     configs:
@@ -35,7 +35,7 @@ services:
 
   audit:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
-    image: ${DOCKER_REGISTRY}audit-restapi:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}audit-restapi:${IMAGE_TAG}
     command: Paritech.Audit.RestAPI.dll
     environment:
       - AUDIT_ENVIRONMENT=${ENVIRONMENT}
@@ -49,7 +49,7 @@ services:
 
   auth:
     <<: *xosp-common
-    image: ${DOCKER_REGISTRY}authserver:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}authserver:${IMAGE_TAG}
     entrypoint: /startup/start.sh
     command: Paritech.AuthServer.dll
     environment:
@@ -73,7 +73,7 @@ services:
 
   authority:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
-    image: ${DOCKER_REGISTRY}authority-service:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}authority-service:${IMAGE_TAG}
     command: Paritech.Authority.dll
     environment:
       - AUTH_ENVIRONMENT=${ENVIRONMENT}
@@ -87,7 +87,7 @@ services:
 
   expo:
     <<: [*xosp-common, *xosp-certificate]
-    image: ${DOCKER_REGISTRY}expo-web:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}expo-web:${IMAGE_TAG}
     command: MotifMarkets.Expo.Web.dll
     environment:
       - EXPO_ENVIRONMENT=${ENVIRONMENT}
@@ -104,7 +104,7 @@ services:
   # Foundry Registry Services
   foundry.admin:
     <<: [*xosp-common, *xosp-certificate]
-    image: ${DOCKER_REGISTRY}foundry-adminportal:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}foundry-adminportal:${IMAGE_TAG}
     command: Paritech.Foundry.AdminPortal.dll
     environment:
       - ASPNETCORE_ENVIRONMENT=${ENVIRONMENT}
@@ -121,7 +121,7 @@ services:
 
   foundry.hub:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}foundry-hub:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}foundry-hub:${IMAGE_TAG}
     command: Paritech.Foundry.Hub.dll
     environment:
       - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
@@ -135,7 +135,7 @@ services:
 
   foundry.oms:
     <<: [*xosp-common, *xosp-certificate]
-    image: ${DOCKER_REGISTRY}foundry-oms:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}foundry-oms:${IMAGE_TAG}
     command: Paritech.Foundry.Adapter.OMS2.dll
     environment:
       - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
@@ -151,7 +151,7 @@ services:
 
   foundry.proc:
     <<: [*xosp-common, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}foundry-proc:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}foundry-proc:${IMAGE_TAG}
     environment:
       - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
     volumes:
@@ -162,7 +162,7 @@ services:
 
   foundry.prodigy:
     <<: [*xosp-common, *xosp-certificate]
-    image: ${DOCKER_REGISTRY}foundry-prodigy:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}foundry-prodigy:${IMAGE_TAG}
     command: Paritech.Foundry.Adapter.Prodigy.dll
     environment:
       - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
@@ -178,7 +178,7 @@ services:
 
   holiday:
     <<: [*xosp-common, *xosp-depends-db]
-    image: ${DOCKER_REGISTRY}marketholiday:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}marketholiday:${IMAGE_TAG}
     environment:
       - ASPNETCORE_ENVIRONMENT=${ENVIRONMENT}
     configs:
@@ -191,7 +191,7 @@ services:
   # Motif
   motif.web:
     <<: *xosp-common
-    image: ${DOCKER_REGISTRY}motif:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}motif:${IMAGE_TAG}
     volumes:
       - ./Branding/Common:/app/browser/branding
     configs:
@@ -202,7 +202,7 @@ services:
 
   motif.services:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
-    image: ${DOCKER_REGISTRY}motif-services:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}motif-services:${IMAGE_TAG}
     command: MotifMarkets.MotifServices.RestAPI.dll
     environment:
       - MOTIF_ENVIRONMENT=${ENVIRONMENT}
@@ -218,7 +218,7 @@ services:
   # Order Management Services 
   oms.hub:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}oms-hub:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}oms-hub:${IMAGE_TAG}
     command: Paritech.OMS2.Hub.dll
     environment:
       - OMS2_ENVIRONMENT=${ENVIRONMENT}
@@ -232,7 +232,7 @@ services:
 
   oms.prodigy:
     <<: [*xosp-common, *xosp-certificate]
-    image: ${DOCKER_REGISTRY}oms-prodigy:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}oms-prodigy:${IMAGE_TAG}
     command: Paritech.OMS2.Trading.Prodigy.dll
     environment:
       - OMS2_ENVIRONMENT=${ENVIRONMENT}
@@ -249,7 +249,7 @@ services:
   # Prodigy Exchange Services
   prodigy.archiver:
     <<: [*xosp-common, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}prodigy-archiver:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}prodigy-archiver:${IMAGE_TAG}
     environment:
       - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
     volumes:
@@ -261,7 +261,7 @@ services:
 
   prodigy.gateway:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}prodigy-gateway:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}prodigy-gateway:${IMAGE_TAG}
     command: Paritech.Prodigy.Gateway.dll
     environment:
       - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
@@ -276,7 +276,7 @@ services:
 
   prodigy.internal:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}prodigy-internal:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}prodigy-internal:${IMAGE_TAG}
     command: Paritech.Prodigy.Internal.dll
     environment:
       - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
@@ -291,7 +291,7 @@ services:
 
   prodigy.monitor:
     <<: *xosp-common
-    image: ${DOCKER_REGISTRY}prodigy-monitor:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}prodigy-monitor:${IMAGE_TAG}
     environment:
       - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
     volumes:
@@ -305,7 +305,7 @@ services:
 
   prodigy.public:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}prodigy-public:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}prodigy-public:${IMAGE_TAG}
     command: Paritech.Prodigy.Public.dll
     environment:
       - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
@@ -320,7 +320,7 @@ services:
 
   prodigy.worker:
     <<: [*xosp-common, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}prodigy-worker:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}prodigy-worker:${IMAGE_TAG}
     environment:
       - PRODIGY_ENVIRONMENT=${ENVIRONMENT}
     volumes:
@@ -332,7 +332,7 @@ services:
 
   sessions:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-dbredis]
-    image: ${DOCKER_REGISTRY}sessions:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}sessions:${IMAGE_TAG}
     command: Paritech.Sessions.Service.dll
     environment:
       - SMS_ENVIRONMENT=${ENVIRONMENT}
@@ -346,7 +346,7 @@ services:
 
   watchmaker:
     <<: [*xosp-common, *xosp-certificate, *xosp-depends-db]
-    image: ${DOCKER_REGISTRY}watchmaker-restapi:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}watchmaker-restapi:${IMAGE_TAG}
     command: Paritech.Watchmaker.RestApi.dll
     environment:
       - ASPNETCORE_ENVIRONMENT=${ENVIRONMENT}
@@ -360,7 +360,7 @@ services:
 
   zenith:
     <<: [*xosp-common, *xosp-certificate]
-    image: ${DOCKER_REGISTRY}zenith-aio:${DOCKER_VERSION}
+    image: ${DOCKER_REGISTRY}zenith-aio:${IMAGE_TAG}
     command: Paritech.Zenith.Service.dll
     environment:
       - ZENITH_ENVIRONMENT=${ENVIRONMENT}

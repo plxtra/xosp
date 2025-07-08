@@ -9,6 +9,7 @@
 	"RegistryNamespace": "", // Namespace to append to the URI, if any
 	"ComposeProject": "xosp", // The name for the docker compose project to group containers. Use for multiple installations on a single machine
 	"DockerEnvFile": ".env", // The docker env file to pass to compose during installation, if you want to customise things
+	"ImageTag": "0.91", // The tag for the XOSP images to pull
 
 	// Host settings
 	"ForwardPorts": null, // Whether to include the port forwarding. If null, defaults to true on Windows and MacOS hosts
