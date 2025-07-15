@@ -1,48 +1,13 @@
 {
 	// Environment Settings
-	//"Environment": "XOSP", // Environment name used for configuration files and logging
-	//"EnvironmentTag": "", // Tag used in realtime data. Empty string typically implies Production, but this is not required. eg: 'test' makes markets like 'ASX[Test]'
 	"RootDomainName": "xosp.localhost", // We generate a wildcard certificate, so straight localhost is invalid as *.localhost won't be accepted by a browser (you can't wildcard a tld)
 
 	// Docker Settings
-	"RegistryUri": "public.ecr.aws/a5o2c1d0/", // For loading container images from a custom registry (eg: Amazon ECR). Needs a trailing slash
+	"RegistryUri": "public.ecr.aws/motifmarkets/", // For loading container images from a custom registry (eg: Amazon ECR). Needs a trailing slash
 	"RegistryNamespace": "plxtra/", // Namespace to append to the URI, if any
-	//"ComposeProject": "xosp", // The name for the docker compose project to group containers. Use for multiple installations on a single machine
-	//"ForwardPorts": null, // Whether to include the port forwarding. If null, defaults to true on Windows and MacOS hosts
-
-	// Database Settings
-	//"DbServer": "postgres", // Use the PostgreSQL container in the docker-compose, or change to use an external server (eg: Amazon RDS)
-	//"DbUserSuffix": "", // Suffix for users when using an external (shared) database service
-	//"DatabaseSuffix": "", // Suffix for databases when using an external (shared) database service
-	//"DbSuperUser": "xosp", // Username for the PostgreSQL super-user
-	//"DbSuperPassword": "", // Blank/null to auto-generate something
-
-	// Auth Settings
-	//"AuthSuffix": "", // Appended to any Resource Name and Scope value. eg: a suffix of XOSP means Prodigy-FixAPI -> ProdigyXOSP-FixAPI. Use for multiple installations with a single auth server
-	//"AdminUser": "XospAdmin", // Default User created by the system
-	//"AdminPassword": "xosp", // Default Password for the user created by the system
-	//"AdminEmail": "admin@xosp.localhost", // Registered email for password recovery
-
-	// Web Settings
-	//"SslPort": null, // The port to bind to on the host machine. If null, defaults to 443 on Linux, 8043 on Windows and MacOS
-	//"CertificateFile":"xosp", // What to call the SSL certificate. No extension - .pem/.key/.crt will be appended as necessary
-	//"GenerateCertificate": true, // Whether to create a self-signed certificate for the domain. False to leave certificate generation to the consumer
 
 	// Market Settings
-	//"MarketCode": "XSX", // The code for the default market on the exchange. Defaults to XSX (XOSP Stock Exchange)
 	"MarketShortCode": "XS", // The short code for the market in front-end applications. If null, defaults to MarketCode
-	//"MarketName": "XOSP Stock Exchange", // The long name for the default market on the exchange
-	//"MarketTimeZone": null, // The IANA timezone for the market. Affects the 24 hour time period used for open/high/low/close values. If null defaults to the host's timezone, if available, otherwise Utc
-	//"MarketOperator":"XS", // The system code for the market operator
-	//"MarketOperatorName":"XOSP Registry Operator", // The descriptive name for the market operator
-	//"Currency":"AUD", // The currency used for trading. Must be listed in Config/Init/currencies.csv
-
-	// Population Settings
-	//"AutoPopulateAccounts": 10, // The number of auto-generated accounts to prepare
-	//"AutoPopulateAccountTemplate": "D4", // .Net format string for generating account names from numbers
-
-	//"AutoPopulateSymbols": 10,
-	//"AutoPopulateSymbolsTemplate":"'XS'00", // .Net format string for generating account names from numbers
 
 	"Extensions": [
 		{"Name":"Recordings", "Market":"ASX", "Dates":["20220502"]} // Configures the environment with a repeating playback of some sample ASX data, "20220503", "20220504", "20220505", "20220506"

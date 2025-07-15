@@ -1,9 +1,9 @@
 #Requires -PSEDition Core -Version 7
 
 param(
-	[Parameter(Position=0)]
-	[Alias("Profile")]
-	[string] $ConfigProfile
+	[Parameter(ValueFromRemainingArguments=$true)]
+	[Alias("Profiles")]
+	[string[]] $ConfigProfiles
 )
 
 $XospVersion = 0.91
@@ -25,23 +25,30 @@ if (Test-Path $CoreParamsPath)
 	# Capture the version early, in case we're also changing profiles during upgrade
 	$UpgradeVersion = $CoreParameters.Version
 
-	# Just to be sure we have a profile name
-	if ([String]::IsNullOrEmpty($CoreParameters.Profile))
+	# If we're using the older single-profile value, upgrade to the array format
+	if (![String]::IsNullOrEmpty($CoreParameters.Profile))
 	{
-		$CoreParameters.Profile = "Default"
+		$CoreParameters.Profiles = @($CoreParameters.Profile)
+		$CoreParameters.Remove("Profile")
 	}
 
-	if ($ConfigProfile -ne $CoreParameters.Profile)
+	# Guarantee we always have at least one profile
+	if ($CoreParameters.Profiles.Count -eq 0)
 	{
-		# If no profile is specified, restore the previous selection
-		if ([String]::IsNullOrEmpty($ConfigProfile))
+		$CoreParameters.Profiles += "Default"
+	}
+
+	if ($ConfigProfiles -ne $CoreParameters.Profiles)
+	{
+		# If no profiles are specified, restore the previous selection
+		if ($null -eq $ConfigProfiles -or $ConfigProfiles.Count -eq 0)
 		{
-			$ConfigProfile = $CoreParameters.Profile
+			$ConfigProfiles = $CoreParameters.Profiles
 		}
 		elseif (Test-Path $ParamsPath)
 		{
 			# Profile supplied, and is different, so we want to reset to the new profile
-			Write-Host "Resetting profile."
+			Write-Host "Selected profile(s) changed, resetting parameters..."
 
 			Remove-Item $ParamsPath
 			$CoreParameters = $null
@@ -52,25 +59,25 @@ else
 {
 	$CoreParameters = $null
 
-	# If no profile is specified, use the default
-	if ([String]::IsNullOrEmpty($ConfigProfile))
+	# If no profiles are specified, use the default
+	if ($null -eq $ConfigProfiles -or $ConfigProfiles.Count -eq 0)
 	{
-		$ConfigProfile = "Default"
+		$ConfigProfiles = @("Default")
 	}
 }
 
 # If we're reapplying to an existing installation, check if the version has changed
 if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 {
-	$ProfilePath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json" # The source of your current profile
+	$DefaultParamsPath = Join-Path $SourcePath "Init" "user-params.json"
 
-	# The version has changed, but that might not matter if the profile configuration is the same
-	if ((Get-Content $ParamsPath -Raw) -ne (Get-Content $ProfilePath -Raw))
+	# The version has changed, check if the user parameters content has also changed (or been customised)	
+	if ((Get-Content $ParamsPath -Raw) -ne (Get-Content $DefaultParamsPath -Raw))
 	{
-		# The profile content has changed (or been customised)
-		$Choices = "&Reset", "&Ignore", "&Abort"
+		# we should inform the user their parameters might no longer be valid
+		$Choices = "&Reset XOSP-Params", "&Continue", "&Abort"
 
-		$Choice = $Host.UI.PromptForChoice("XOSP Configuration Changed", "This XOSP version is different from your existing installation, and any customisations may be invalid.", $Choices, 1)
+		$Choice = $Host.UI.PromptForChoice("XOSP Params Changed", "This XOSP version is different from your existing installation, your user parameters may need updating.", $Choices, 1)
 
 		if ($Choice -eq 2)
 		{
@@ -81,7 +88,7 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 
 		if ($Choice -eq 1 -and (Test-Path $ParamsPath))
 		{
-			Write-Host "Resetting profile."
+			Write-Host "Version changed, resetting parameters..."
 
 			Remove-Item $ParamsPath
 			$CoreParameters = $null
@@ -91,35 +98,33 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 
 if (!(Test-Path $ParamsPath))
 {
-	# If there's no active parameters, we want to grab some defaults
-	$ProfilePath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"
+	# If there's no user parameters, we want to grab the defaults
+	$DefaultParamsPath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"
 
-	if (!(Test-Path $ProfilePath))
-	{
-		Write-Warning "Unable to find parameter profile for $ConfigProfile."
-
-		exit
-	}
-
-	Write-Host "Applying new profile: $ConfigProfile"
+	Copy-Item -Path $DefaultParamsPath -Destination $ParamsPath
 	
-	Copy-Item -Path $ProfilePath -Destination $ParamsPath
+	Write-Host "Applying profiles: $ConfigProfiles"
 }
 else
 {
-	Write-Host "Applying existing profile: $ConfigProfile"	
+	Write-Host "Applying existing profiles: $ConfigProfiles"
 }
 
 # Execute our common sub-script. Dot sourcing to share the execution context and inherit any variables
-. (Join-Path $PSScriptRoot "XOSP-Common.ps1") -Profile $ConfigProfile
+. (Join-Path $PSScriptRoot "XOSP-Common.ps1") @ConfigProfiles
 
 # We want to copy the parameters for later, as we'll be sticking credentials and stuff inside the original
 $CoreParameters = $Parameters.Clone()
-$CoreParameters.Profile = $ConfigProfile
+$CoreParameters.Profiles = $ConfigProfiles
 $CoreParameters.Version = $XospVersion
+$CoreParameters.ComposeFiles = @("docker-compose.yml")
 
 # Make sure to remove stuff we don't need for replacements
+$Parameters.Remove("ComposeFiles")
 $Parameters.Remove("Extensions")
+$Parameters.Remove("Profiles")
+$Parameters.Remove("Databases")
+$Parameters.Remove("SubDomains")
 
 #########################################
 
@@ -232,7 +237,7 @@ $DockerVersion = & docker version --format json 2>$null | ConvertFrom-Json
 
 if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
 {
-	Write-Host "Could not connect to Docker Engine. Please ensure Docker Engine is started and running."
+	Write-Host "Could not connect to Docker Engine. Please ensure Docker Engine is started and running, and that the user has access."
 
 	exit
 }
@@ -254,7 +259,7 @@ $Extensions = @()
 
 if ($null -ne $CoreParameters.Extensions -and $CoreParameters.Extensions.Count -gt 0 -and (Test-Path $ExtensionPath))
 {
-	Write-Host "Detecting Extensions..."
+	Write-Host "Loading Extensions..."
 
 	$ExtensionFactories = @{}
 
@@ -308,7 +313,7 @@ foreach ($SourceFile in $SourceFiles)
 #########################################
 
 $DbCredentials = @{}
-# $Databases populated from XOSP-Common.ps1
+# $Parameters.Databases populated from XOSP-Common.ps1
 
 if ($true)
 {
@@ -336,7 +341,7 @@ if ($true)
 
 	$DbSuffix = $Parameters.DbUserSuffix
 	
-	foreach ($Database in $Databases.GetEnumerator() | Sort-Object)
+	foreach ($Database in $Parameters.Databases.GetEnumerator() | Sort-Object)
 	{
 		if (-not $DbCredentials.ContainsKey($Database))
 		{
@@ -464,6 +469,43 @@ foreach ($SourceFile in $SourceFiles)
 
 #########################################
 
+Write-Host "Preparing Docker Compose files for $($Parameters.RegistryUri)..."
+
+if ($true)
+{
+	# Copy the base docker-compose file(s)
+	Copy-Relative -SourcePath (Join-Path $SourcePath "Docker") -TargetPath $TargetPath -Include @("*.yml")
+	
+	# Prepare the environment file
+	$SourceFile = Join-Path $SourcePath "Docker" ".env"
+	$TargetFile = Join-Path $TargetPath $Parameters.DockerEnvFile
+	
+	Copy-WithReplace $SourceFile $TargetFile $Parameters
+}
+
+#########################################
+
+if ($Extensions.Count -gt 0)
+{
+	Write-Host "Applying $($Extensions.Count) extensions..."
+
+	$ExtensionTargetPath = Join-Path $TargetPath "Init" "Extensions"
+
+	Copy-Relative -SourcePath $ExtensionPath -TargetPath $ExtensionTargetPath
+
+	foreach ($Extension in $Extensions)
+	{
+		$Extension.Configure($TargetPath, $CoreParameters)
+
+		if ($null -ne ($Extension | Get-Member GetComposeFiles))
+		{
+			$CoreParameters.ComposeFiles += $Extension.GetComposeFiles()
+		}
+	}
+}
+
+#########################################
+
 if ($Parameters.GenerateCertificate -eq $true)
 {
 	$CertificateFile = Join-Path $TargetPath $Parameters.CertificateFile
@@ -526,47 +568,12 @@ if ($Parameters.GenerateCertificate -eq $true)
 		}
 
 		# Output to the target directory
-		$CertificateFormat = [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx
-		if ($Passphrase)
-		{
-			$RawBytes = $Certificate.Export($CertificateFormat, $Passphrase)
-		}
-		else
-		{
-			$RawBytes = $Certificate.Export($CertificateFormat)
-		}
-		
-		try
-		{
-			[System.IO.File]::WriteAllBytes("$CertificateFile.pfx", $RawBytes)
-		}
-		finally
-		{
-			[Array]::Clear($RawBytes, 0, $RawBytes.Length)
-		}
-		
 		$RawString = $Certificate.ExportCertificatePem()
 		[System.IO.File]::WriteAllText("$CertificateFile.crt", $RawString)
 		
 		$RawString = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate).ExportRSAPrivateKeyPem()
 		[System.IO.File]::WriteAllText("$CertificateFile.key", $RawString)
 	}
-}
-
-#########################################
-
-Write-Host "Preparing Docker Compose files for $($Parameters.RegistryUri)..."
-
-if ($true)
-{
-	# Copy the base docker-compose file(s)
-	Copy-Relative -SourcePath (Join-Path $SourcePath "Docker") -TargetPath $TargetPath -Include @("*.yml")
-	
-	# Prepare the environment file
-	$SourceFile = Join-Path $SourcePath "Docker" ".env"
-	$TargetFile = Join-Path $TargetPath $Parameters.DockerEnvFile
-	
-	Copy-WithReplace $SourceFile $TargetFile $Parameters
 }
 
 #########################################
@@ -664,7 +671,7 @@ if ($true)
 	# Generate the task parameters file, which will get loaded by various administrative task scripts
 	$TaskParameters = @{
 		UsingFoundry = $false;
-		TokenService = "https://auth.$($Parameters.RootUri)";
+		TokenService = "https://auth.$($Parameters.HttpsUri)";
 		AuthSuffix = $Parameters.AuthSuffix
 		#XospClientId = $Parameters['ClientID-XospControl'];
 		#XospClientSecret = $Parameters['ClientSecret-XospControl']
@@ -675,19 +682,5 @@ if ($true)
 }
 
 #########################################
-
-if ($Extensions.Count -gt 0)
-{
-	Write-Host "Applying $($Extensions.Count) extensions..."
-
-	$ExtensionTargetPath = Join-Path $TargetPath "Init" "Extensions"
-
-	Copy-Relative -SourcePath $ExtensionPath -TargetPath $ExtensionTargetPath
-
-	foreach ($Extension in $Extensions)
-	{
-		$Extension.Configure($TargetPath, $Parameters)
-	}
-}
 
 Read-Host -Prompt "Press Enter to finish"

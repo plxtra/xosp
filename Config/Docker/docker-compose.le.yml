@@ -1,0 +1,22 @@
+services:
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ${SHARED_DATA}/certbot/www/:/var/www/certbot/:rw
+      - ${SHARED_DATA}/certbot/conf/:/etc/letsencrypt/:rw
+    profiles:
+      - certbot
+
+  nginx:
+    volumes:
+      - ${SHARED_DATA}/certbot/www/:/var/www/certbot/:ro
+
+configs:
+  nginx:
+    file: Nginx/nginx.le.conf
+
+secrets:
+  certificate.crt:
+    file: ${SHARED_DATA}/certbot/conf/live/${ROOT_DOMAIN}/fullchain.pem
+  certificate.key:
+    file: ${SHARED_DATA}/certbot/conf/live/${ROOT_DOMAIN}/privkey.pem

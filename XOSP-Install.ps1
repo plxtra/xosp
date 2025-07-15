@@ -7,6 +7,7 @@ param(
 )
 
 $TargetPath = Join-Path $PSScriptRoot "Docker"
+$ExtensionPath = Join-Path $PSScriptRoot "Extensions" # Where to find any extensions
 $ParamsSource = Join-Path $TargetPath "Init" "init-params.json"
 
 if (!(Test-Path $ParamsSource))
@@ -21,7 +22,7 @@ if (!(Test-Path $ParamsSource))
 
 #########################################
 
-# Check the Docker Engine is actually running
+# Check the Docker Engine is running and contactable
 $DockerVersion = & docker version --format json 2>$null | ConvertFrom-Json
 
 if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
@@ -31,10 +32,9 @@ if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
 	exit
 }
 
-#########################################
-
 $ExpectPullThrottling = $false
 
+# Special handling to login with AWS Public/Private registries
 if ($Parameters.RegistryUri -match "(?<id>\d+)\.dkr\.ecr\.(?<region>[\w-]+)\.amazonaws\.com")
 {
 	# If we're using a private AWS registry, we need to login
@@ -52,7 +52,6 @@ if ($Parameters.RegistryUri -match "(?<id>\d+)\.dkr\.ecr\.(?<region>[\w-]+)\.ama
 elseif ($Parameters.RegistryUri -match "public.ecr.aws/(?<id>\w+)")
 {
 	# If we're using the public AWS registry, there's a 1 pull-per-second throttling limit for unauthenticated users which we can easily hit
-
 	if ($null -ne (Get-Command aws -ErrorAction Ignore))
 	{
 		# The CLI tools are installed, let's try to login, since the throttling is much less severe
@@ -72,20 +71,51 @@ elseif ($Parameters.RegistryUri -match "public.ecr.aws/(?<id>\w+)")
 	}
 }
 
+$Extensions = @()
+
+if ($null -ne $Parameters.Extensions -and $Parameters.Extensions.Count -gt 0 -and (Test-Path $ExtensionPath))
+{
+	Write-Host "Loading Extensions..."
+
+	$ExtensionFactories = @{}
+
+	# Detect and create the extension factories
+	foreach ($ExtensionFile in (Get-ChildItem (Join-Path $ExtensionPath "*") -File -Include @("*.ps1") | Foreach-Object { $_.FullName }))
+	{
+		$Factory = & $ExtensionFile
+
+		$ExtensionFactories[$Factory.Name] = $Factory
+	}
+
+	# Instantiate each extension by name
+	foreach ($Settings in $Parameters.Extensions.GetEnumerator())
+	{
+		$Factory = $ExtensionFactories[$Settings.Name]
+
+		if ($null -eq $Factory)
+		{
+			Write-Host "Extension $($Settings.Name) does not exist"
+
+			exit
+		}
+
+		$Extensions += $Factory.Create($Settings)
+	}
+}
+
 #########################################
 
-# "--project-directory", $TargetPath,
-$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
+# Prepare our docker compose arguments
+$ComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
 
 if (-not $Verbose)
 {
 	$ComposeArgs += @("--progress", "quiet")
 }
 
-if ($Parameters.ForwardPorts)
+foreach ($FileName in $Parameters.ComposeFiles)
 {
-	# Include port forwarding on non-linux hosts
-	$ComposeArgs += @("--file", $(Join-Path $TargetPath "docker-compose.ports.yml"))
+	 $ComposeArgs += @("--file", $(Join-Path $TargetPath $FileName))
 }
 
 $UpArgs = @("up", "--no-recreate", "--wait")
@@ -110,29 +140,6 @@ if ($AlwaysPull -and -not $ExpectPullThrottling)
 	$CreateArgs += @("--pull", "always")
 }
 
-if ($SkipInit)
-{
-	$UpArgs = @("up", "--wait")
-
-	if ($AlwaysPull -and -not $ExpectPullThrottling)
-	{
-		# We don't expect throttling, so we can just pull as part of create and do it all in parallel
-		$UpArgs += @("--pull", "always")
-	}
-
-	Write-Host "Initialising Docker Containers from $($Parameters.RegistryUri)..."
-	
-	& docker @ComposeArgs @UpArgs
-
-	Write-Host "Installation complete, skipping environment initialisation."
-
-	exit
-}
-
-Write-Host "Initialising Docker Containers from $($Parameters.RegistryUri)..."
-& docker @ComposeArgs @CreateArgs
-FailWithError "Unable to create the XOSP containers."
-
 #########################################
 
 $UpgradePath = Join-Path $TargetPath "Init" "upgrade-required"
@@ -142,7 +149,7 @@ if (Test-Path $UpgradePath)
 	$UpgradeVersion = Get-Content -Raw $UpgradePath
 	Write-Host "Upgrading Installation from $UpgradeVersion to $($Parameters.Version)..."
 
-	# Stop containers before running the upgrade procedure
+	# Stop any running containers before performing the upgrade procedure
 	& docker @ComposeArgs stop
 
 	$Processors = @()
@@ -185,6 +192,41 @@ if (Test-Path $UpgradePath)
 
 #########################################
 
+if ($Extensions.Count -gt 0)
+{
+	foreach ($Extension in $Extensions)
+	{
+		$Extension.Install($TargetPath, $Parameters, $ComposeArgs)
+	}
+}
+
+#########################################
+
+if ($SkipInit)
+{
+	$UpArgs = @("up", "--wait")
+
+	if ($AlwaysPull -and -not $ExpectPullThrottling)
+	{
+		# We don't expect throttling, so we can just pull as part of create and do it all in parallel
+		$UpArgs += @("--pull", "always")
+	}
+
+	Write-Host "Initialising Docker Containers from $($Parameters.RegistryUri)..."
+	
+	& docker @ComposeArgs @UpArgs
+
+	Write-Host "Installation complete, skipping environment initialisation."
+
+	exit
+}
+
+Write-Host "Initialising Docker Containers from $($Parameters.RegistryUri)..."
+& docker @ComposeArgs @CreateArgs
+FailWithError "Unable to create the XOSP containers."
+
+#########################################
+
 # Does our Postgres DB have any content yet?
 $UsageData = & docker system df --verbose --format json | ConvertFrom-Json
 $PgDataVolumeName = $Parameters.ComposeProject + "_pgdata"
@@ -210,7 +252,7 @@ FailWithError "Unable to bring up all support services."
 
 # Exercise the REST API to populate client ids
 # First time we run the control tool, we force a rebuild, since docker won't do it automatically even if the dockerfile changes
-& docker @ComposeArgs @InitArgs --build control "/init/auth-init.ps1"
+& docker @ComposeArgs @InitArgs --build control "/init/auth-init.ps1" -UserName $Parameters.AdminUser -Password $Parameters.AdminPassword
 FailWithError "Unable to initialise the Auth Server database."
 
 Write-Host "Starting Core Application services..."
@@ -247,48 +289,18 @@ FailWithError "Unable to bring up Frontend Services."
 
 #########################################
 
-Write-Host "Preparing Networking..."
-
-# Retrieve the nginx container details
-$ContainerList = & docker @ComposeArgs ps --format json --no-trunc nginx | ConvertFrom-Json
-
-if ($null -eq $ContainerList)
+if ($Parameters.RootDomainName.EndsWith("localhost"))
 {
-	Write-Warning "Unable to locate Nginx container, networking may not function"
-}
-else
-{	
-	$NginxID = $ContainerList[0].ID
-	
-	# Retrieve the container IP address
-	$NginxDetails = & docker inspect --format json $NginxID | ConvertFrom-Json
-	
-	if ($Parameters.ForwardPorts)
-	{
-		# On Windows/MacOS we can't connect to the docker container directly, and have to bind a local port
-		# so forwarding ports is the default (via the docker-compose.ports.yml file)
-		$ContainerIP = "127.0.0.1"
-	}
-	else
-	{
-		# On Linux we can connect to the container directly (without port binding), so unless ports are forwarded, we need to be part of the bridge network to be visible
-		if ("bridge" -notin $NginxDetails.NetworkSettings.Networks.PSObject.Properties.name)
-		{
-			# Not attached to the bridge network, so make it visible
-			& docker network connect bridge $NginxID
-			$NginxDetails = & docker inspect --format json $NginxID | ConvertFrom-Json
-		}
-		
-		$NetworkName = "bridge" # $Parameters.ComposeProject + "_default";
-		$ContainerIP = $NginxDetails.NetworkSettings.Networks.($NetworkName).IPAddress
-	}	
+	Write-Host "Preparing Networking..."
+
+	$ContainerIP = "127.0.0.1"
 	
 	$TargetFile = Join-Path $TargetPath "hosts"
 
 	$SourceContent = New-Object System.Text.StringBuilder
 	$RootDomainName = $Parameters.RootDomainName
 	
-	foreach ($Record in $SubDomains.GetEnumerator() | Sort-Object)
+	foreach ($Record in $Parameters.SubDomains.GetEnumerator() | Sort-Object)
 	{
 		$SourceContent.AppendLine("$ContainerIP $Record.$RootDomainName") > $null
 	}
@@ -296,22 +308,44 @@ else
 	Set-Content $TargetFile -Value $SourceContent.ToString() > $null
 }
 
-$RootUri = $Parameters.RootUri
+$HttpsUri = $Parameters.HttpsUri
 
 Write-Host "================================================================================"
-
-Write-Host "Installation and setup complete. The next steps require some manual work:"
-Write-Host " 1. For DNS resolution, copy the 'hosts' file to your platform-specific hosts file."
-Write-Host "    $(Join-Path $TargetPath `"hosts`")"
-Write-Host " 2. For HTTPS, install the appropriate certificate file into your browser certificate store."
-Write-Host "    $(Join-Path $TargetPath $Parameters.CertificateFile).crt"
-Write-Host "DNS and HTTPS are necessary before you can access the system from a browser, as they are required for OAuth login."
-Write-Host "================================================================================"
-Write-Host "Once complete, the system can be accessed with the login '$($Parameters.AdminUser)' and password '$($Parameters.AdminPassword)'"
-Write-Host "- Trading Terminal: https://motif.${RootUri}/"
-Write-Host "                    https://arclight.${RootUri}/"
-Write-Host "                    https://expo.${RootUri}/"
-Write-Host "- Registry for cash and holdings management: https://foundry.${RootUri}/"
-Write-Host "- User Account management: https://auth.${RootUri}/"
+Write-Host "Installation complete. There may be further manual steps required - see below."
+Write-Host "Once completed, the system can be accessed with the login '$($Parameters.AdminUser)' and password '$($Parameters.AdminPassword)'"
+Write-Host "- Trading Terminal: https://motif.${HttpsUri}/"
+Write-Host "                    https://arclight.${HttpsUri}/"
+Write-Host "                    https://expo.${HttpsUri}/"
+Write-Host "- Registry for cash and holdings management: https://foundry.${HttpsUri}/"
+Write-Host "- User Account management: https://auth.${HttpsUri}/"
 Write-Host "Environment logs and temporary databases will be stored at $($Parameters.SharedDataPath)"
 Write-Host "================================================================================"
+
+if ($Parameters.RootDomainName.EndsWith("localhost"))
+{
+	Write-Host "MANUAL STEP REQUIRED:"
+	Write-Host "  A 'hosts' file has been generated for $($Parameters.RootDomainName) at:"
+	Write-Host "    $(Join-Path $TargetPath `"hosts`")"
+	Write-Host "  Copy the contents of this 'hosts' file to your platform-specific hosts file to enable DNS resolution."
+	Write-Host "================================================================================"
+}
+
+if ($Parameters.GenerateCertificate)
+{
+	Write-Host "MANUAL STEP REQUIRED:"
+	Write-Host "  A self-signed certificate has been generated at:"
+	Write-Host "    $(Join-Path $TargetPath $Parameters.CertificateFile).crt"
+	Write-Host "  Install this certificate file into your system or browser certificate store to enable HTTPS."
+	Write-Host "================================================================================"
+}
+
+if ($Extensions.Count -gt 0)
+{
+	foreach ($Extension in $Extensions)
+	{
+		if ($null -ne ($Extension | Get-Member PostInstall))
+		{
+			$Extension.PostInstall($TargetPath, $Parameters)
+		}
+	}
+}

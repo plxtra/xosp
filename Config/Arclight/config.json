@@ -8,19 +8,19 @@
   },
   "endpoints": {
     "motifServices": [
-      "https://svc.${RootUri}"
+      "https://svc.${HttpsUri}"
     ],
     "zenith": [
-      "wss://ws.${RootUri}/Zenith?version=2.0"
+      "wss://ws.${HttpsUri}/Zenith?version=2.0"
     ],
     "notificationServerPublicKey": "BDnhNT0Y8rbwJYa4qaD7XcdZOmtw7uFrrBn5allB4Br7cA9_zQgAvGi6BuQHIKimTld-Qbfv1YqG2dx9mVzbyiw"
   },
   "openId": {
-    "authority": "https://auth.${RootUri}",
+    "authority": "https://auth.${HttpsUri}",
     "clientId": "${ClientID-ArclightWeb}",
-    "redirectUri": "https://arclight.${RootUri}/auth-callback",
-    "silentRedirectUri": "https://arclight.${RootUri}/silent-refresh.html",
-    "postLogoutRedirectUri": "https://arclight.${RootUri}/",
+    "redirectUri": "https://arclight.${HttpsUri}/auth-callback",
+    "silentRedirectUri": "https://arclight.${HttpsUri}/silent-refresh.html",
+    "postLogoutRedirectUri": "https://arclight.${HttpsUri}/",
     "scope": "offline_access Zenith${AuthSuffix}/Trading Zenith${AuthSuffix}/Market Zenith${AuthSuffix}/News Zenith${AuthSuffix}/OrderPad Motif${AuthSuffix}/Service"
   },
   "initialWatchlist": [

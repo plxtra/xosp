@@ -133,8 +133,15 @@ $SampleMarkets = @()
 # Include any extensions
 foreach ($Extension in $Extensions)
 {
-	$Markets += $Extension.GetMarkets()
-	$SampleMarkets += $Extension.GetSampleMarkets()
+	if ($null -ne ($Extension | Get-Member GetMarkets))
+	{
+		$Markets += $Extension.GetMarkets()
+	}
+
+	if ($null -ne ($Extension | Get-Member GetSampleMarkets))
+	{
+		$SampleMarkets += $Extension.GetSampleMarkets()
+	}
 }
 
 Write-Host "`tAdmin User $($Parameters.AdminUser)." -NoNewline

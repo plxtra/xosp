@@ -63,8 +63,8 @@ services:
       - source: auth
         target: /app/appsettings.${ENVIRONMENT}.json
     secrets:
-      - certificate.pfx # ASP.Net needs the certificate to respond internally to SSL requests for client tokens
-      - certificate.crt # OS needs the certificate to allow SSL health checks
+      - certificate.crt
+      - certificate.key # ASP.Net needs the certificate key to respond internally to SSL requests for client tokens
     networks:
       internal:
         # Our external DNS address won't resolve from inside the Docker network until the user adds it to a hosts file, so we add an alias to ensure everything works during install
@@ -429,6 +429,12 @@ services:
     secrets:
       - certificate.crt
       - certificate.key
+    ports:
+      - ${HTTP_PORT}:80
+      - ${HTTPS_PORT}:443
+    networks:
+      - default # Need to be connected to the default network for port forwarding to work
+      - internal
     healthcheck:
       test: service nginx status || exit 1
       interval: 10s
@@ -516,8 +522,6 @@ configs:
     file: Prodigy/appsettings.Archiver.json
   prodigy.gateway:
     file: Prodigy/appsettings.Gateway.json
-  prodigy.gateway.certificate:
-    file: Prodigy/FixGateway.pfx
   prodigy.internal:
     file: Prodigy/appsettings.Internal.json
   prodigy.monitor:
@@ -540,8 +544,6 @@ configs:
 secrets:
   certificate.crt:
     file: ${CERTIFICATE}.crt
-  certificate.pfx:
-    file: ${CERTIFICATE}.pfx
   certificate.key:
     file: ${CERTIFICATE}.key
 
