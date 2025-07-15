@@ -41,9 +41,9 @@ else
 
 # All additional columns represent extra claims for each role
 $ClaimTypes = $RolesConfiguration | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -ne "Role" }
-
-$Credentials = [pscredential]::new($UserName, (ConvertTo-SecureString $Password -AsPlainText -Force))
-$StandardArguments = @("-MaximumRedirection", "0", "-SkipHttpErrorCheck", "-ErrorAction", "Ignore", "-Credential", $Credentials, "-AllowUnencryptedAuthentication")
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [pscredential]::new($UserName, $SecurePassword)
+$StandardArguments = @{MaximumRedirection = "0"; SkipHttpErrorCheck = $true; ErrorAction = "Ignore"; Authentication = "Basic"; Credential = $Credentials; AllowUnencryptedAuthentication = $true }
 
 #########################################
 

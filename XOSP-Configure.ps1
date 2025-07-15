@@ -99,7 +99,7 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 if (!(Test-Path $ParamsPath))
 {
 	# If there's no user parameters, we want to grab the defaults
-	$DefaultParamsPath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"
+	$DefaultParamsPath = Join-Path $TargetPath "Init" "user-params.json"
 
 	Copy-Item -Path $DefaultParamsPath -Destination $ParamsPath
 	
@@ -341,7 +341,7 @@ if ($true)
 
 	$DbSuffix = $Parameters.DbUserSuffix
 	
-	foreach ($Database in $Parameters.Databases.GetEnumerator() | Sort-Object)
+	foreach ($Database in $CoreParameters.Databases.GetEnumerator() | Sort-Object)
 	{
 		if (-not $DbCredentials.ContainsKey($Database))
 		{
@@ -641,6 +641,9 @@ if ($true)
 	}
 
 	# Generate the init parameters file, which will get loaded inside docker during environment setup
+	$CoreParameters.Remove("Databases")
+	$CoreParameters.Remove("SubDomains")
+
 	$CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json"
 	$CoreParameters | ConvertTo-Json -Depth 100 | Set-Content $CoreParamsPath
 
@@ -672,7 +675,9 @@ if ($true)
 	$TaskParameters = @{
 		UsingFoundry = $false;
 		TokenService = "https://auth.$($Parameters.HttpsUri)";
-		AuthSuffix = $Parameters.AuthSuffix
+		AuthSuffix = $Parameters.AuthSuffix;
+		AdminUser = $Parameters.AdminUser;
+		AdminPassword = $Parameters.AdminPassword
 		#XospClientId = $Parameters['ClientID-XospControl'];
 		#XospClientSecret = $Parameters['ClientSecret-XospControl']
 	}

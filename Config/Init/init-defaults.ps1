@@ -54,7 +54,7 @@ $Defaults = @"
 
 	"Extensions": []
 }
-"@ | ConvertFrom-Json
+"@ | ConvertFrom-Json -AsHashtable
 
 $Defaults.PublicHttpPort = $Parameters.HttpPort ?? 80
 $Defaults.PublicHttpsPort = $Parameters.HttpsPort ?? 443
@@ -63,7 +63,7 @@ $Defaults.AdminEmail = "admin@" + $Parameters.RootDomainName
 # Setup some platform-specific defaults
 if ($IsWindows)
 {
-	$Defaults.SharedDataPath = Join-Path Join-Path [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData) "Plxtra" "XOSP"
+	$Defaults.SharedDataPath = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) "Plxtra" "XOSP"
 }
 
 # Determine the default timezone
