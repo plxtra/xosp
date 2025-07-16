@@ -8,6 +8,7 @@
 	//"RegistryUri": "public.ecr.aws/motifmarkets/", // For loading container images from a custom registry (eg: Amazon ECR). Needs a trailing slash
 	//"RegistryNamespace": "plxtra/", // Namespace to append to the URI, if any
 	//"ComposeProject": "xosp", // The name for the docker compose project to group containers. Use for multiple installations on a single machine
+	//"SharedDataPath": "~/Plxtra/XOSP", // The local host path in which to store service data. If null, defaults to a host-specific path
 
 	// Database Settings
 	//"DbServer": "postgres", // Use the PostgreSQL container in the docker-compose, or change to use an external server (eg: Amazon RDS)
@@ -28,7 +29,7 @@
 	//"PublicHttpPort": null, // The HTTP port for external requests. If null, defaults to the HttpPort value
 	//"PublicHttpsPort": null, // The HTTPS port for external requests. If null, defaults to the HttpsPort value
 	//"GenerateCertificate": true, // Whether to create a self-signed certificate for the domain. False to leave certificate generation to the consumer
-	//"CertificateFile":"xosp", // What to call the SSL certificate. No extension - .pem/.key/.crt will be appended as necessary
+	//"CertificateFile":"xosp", // What to call the SSL certificate. No extension - .crt/.key will be appended as necessary
 
 	// Market Settings
 	//"MarketCode": "XSX", // The code for the default market on the exchange. Defaults to XSX (XOSP Stock Exchange)

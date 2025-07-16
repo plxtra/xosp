@@ -50,8 +50,8 @@ class LetsEncryptInstance
 
 		Write-Host "================================================================================"
 		Write-Host "To install the LetsEncrypt extension, the following steps must be taken:"
-		Write-Host "- Public DNS exists for $($Parameters.RootDomainName)"
-		Write-Host "- Public DNS exists for the subdomains $($Parameters.SubDomains)"
+		Write-Host "- Public DNS exists for '$($Parameters.RootDomainName)'"
+		Write-Host "- Public DNS exists for the subdomains: $($Parameters.SubDomains)"
 		
 		if ($Parameters.HttpPort -eq 80)
 		{

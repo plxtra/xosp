@@ -1,4 +1,5 @@
 {
+	"GenerateCertificate": false,
 	"Extensions": [
 		{"Name":"LetsEncrypt", "Testing": true}
 	]

@@ -15,14 +15,15 @@ $ExtensionPath = Join-Path $PSScriptRoot "Extensions" # Where to find any extens
 $TargetPath = Join-Path $PSScriptRoot "Docker" # Where to output the prepared configurations
 $CoreParamsPath = Join-Path $TargetPath "Init" "init-params.json" # Where our compiled configuration goes
 $ParamsPath = Join-Path $PSScriptRoot "XOSP-Params.json" # Where any configuration overrides go
+$DefaultParamsPath = Join-Path $TargetPath "Init" "user-params.json"
 $UpgradeVersion = $null
 
-# Check if there's a previously saved set of parameters
+# Is this a new or existing installation?
 if (Test-Path $CoreParamsPath)
 {
 	$CoreParameters = Get-Content $CoreParamsPath -Raw | ConvertFrom-Json -AsHashtable
 
-	# Capture the version early, in case we're also changing profiles during upgrade
+	# Capture the installed version early, in case we're also changing profiles during upgrade
 	$UpgradeVersion = $CoreParameters.Version
 
 	# If we're using the older single-profile value, upgrade to the array format
@@ -45,19 +46,12 @@ if (Test-Path $CoreParamsPath)
 		{
 			$ConfigProfiles = $CoreParameters.Profiles
 		}
-		elseif (Test-Path $ParamsPath)
-		{
-			# Profile supplied, and is different, so we want to reset to the new profile
-			Write-Host "Selected profile(s) changed, resetting parameters..."
-
-			Remove-Item $ParamsPath
-			$CoreParameters = $null
-		}
 	}
 }
 else
 {
 	$CoreParameters = $null
+	$UpgradeVersion = $XospVersion
 
 	# If no profiles are specified, use the default
 	if ($null -eq $ConfigProfiles -or $ConfigProfiles.Count -eq 0)
@@ -90,13 +84,13 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 		{
 			Write-Host "Version changed, resetting parameters..."
 
-			Remove-Item $ParamsPath
+			Copy-Item -Path $DefaultParamsPath -Destination $ParamsPath
 			$CoreParameters = $null
 		}
 	}
 }
 
-if (!(Test-Path $ParamsPath))
+if (!(Test-Path $ParamsPath) -or (Get-Item $ParamsPath).Size -eq 0)
 {
 	# If there's no user parameters, we want to grab the defaults
 	$DefaultParamsPath = Join-Path $TargetPath "Init" "user-params.json"
@@ -429,7 +423,7 @@ if ($true)
 
 Write-Host "Preparing Environment Files..."
 
-# These files we perform ${} replacement on
+# These files we perform ${} replacement on. In this second stage, we also have the Database and Client Application secrets
 $SourceFiles = Get-ChildItem $SourcePath -Recurse -File -Include @("*.config", "*.conf", "*.json", "*.xml", "*.sh", "*.txt", "Dockerfile") -Exclude @("Database*") | ForEach-Object { $_.FullName }
 
 foreach ($SourceFile in $SourceFiles)
@@ -450,6 +444,7 @@ foreach ($SourceFile in $SourceFiles)
 
 # These files we copy directly, no replacement
 $SourceFiles = Get-ChildItem $SourcePath -Recurse -File -Include @("*.ps1") | ForEach-Object { $_.FullName }
+$SourceFiles += Get-ChildItem (Join-Path $SourcePath "Branding") -Recurse -File | ForEach-Object { $_.FullName }
 
 foreach ($SourceFile in $SourceFiles)
 {
@@ -571,7 +566,15 @@ if ($Parameters.GenerateCertificate -eq $true)
 		$RawString = $Certificate.ExportCertificatePem()
 		[System.IO.File]::WriteAllText("$CertificateFile.crt", $RawString)
 		
-		$RawString = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate).ExportRSAPrivateKeyPem()
+		if ($Passphrase)
+		{
+			$Parameters = [System.Security.Cryptography.PbeParameters]::new([System.Security.Cryptography.PbeEncryptionAlgorithm]::Aes128Cbc, [System.Security.Cryptography.HashAlgorithmName]::SHA256, 600000)
+			$RawString = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate).ExportEncryptedPkcs8PrivateKeyPem($Passphrase, $Parameters)
+		}
+		else
+		{
+			$RawString = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate).ExportRSAPrivateKeyPem()
+		}
 		[System.IO.File]::WriteAllText("$CertificateFile.key", $RawString)
 	}
 }

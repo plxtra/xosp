@@ -12,9 +12,6 @@ services:
     configs:
       - source: nginx
         target: /etc/nginx/conf.d/default.conf
-    secrets:
-      - certificate.crt
-      - certificate.key
     volumes:
       - ${SHARED_DATA}/certbot/www/:/var/www/certbot/:ro
     healthcheck:
@@ -29,9 +26,3 @@ services:
 configs:
   nginx:
     file: Nginx/nginx.le-init.conf
-
-secrets:
-  certificate.crt:
-    file: ${SHARED_DATA}/certbot/live/${ROOT_DOMAIN}/fullchain.pem
-  certificate.key:
-    file: ${SHARED_DATA}/certbot/live/${ROOT_DOMAIN}/privkey.pem
