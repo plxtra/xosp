@@ -56,7 +56,7 @@
           "name": "Plxtra"
         },
         "name": "Highcharts",
-        "version": "0.0.4",
+        "version": "0.0.5",
         "apiVersion": "3",
         "shortDescription": "Highcharts Charting",
         "longDescription": "Highcharts Charting",
@@ -71,11 +71,26 @@
           "name": "Plxtra"
         },
         "name": "TsDemo",
-        "version": "0.0.3",
+        "version": "0.0.4",
         "apiVersion": "3",
         "shortDescription": "TypeScript Demo",
         "longDescription": "Example extension demonstrating how an Extension is written with TypeScript",
         "urlPath": "/extensions/ts-demo/ts-demo.js"
+      },
+      "install": false
+    },
+    {
+      "info": {
+        "publisherId": {
+          "type": "Organisation",
+          "name": "Plxtra"
+        },
+        "name": "Website Embed",
+        "version": "0.0.3",
+        "apiVersion": "3",
+        "shortDescription": "Website Embed Demo",
+        "longDescription": "Sample extension demonstrating embedding website links",
+        "urlPath": "/extensions/website-embed/index.js"
       },
       "install": false
     }
