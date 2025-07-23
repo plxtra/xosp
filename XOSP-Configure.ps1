@@ -462,6 +462,19 @@ foreach ($SourceFile in $SourceFiles)
 	Copy-Item $SourceFile -Destination $TargetFile
 }
 
+# If chmod is available, we need to fix some permissions on a few things
+if ($null -ne (Get-Command chmod -ErrorAction Ignore) -and $null -ne (Get-Command chown -ErrorAction Ignore))
+{
+	# First we want to mark all our shell scripts executable
+	$SourceFiles = Get-ChildItem $TargetPath -Recurse -File -Include @("*.sh") | ForEach-Object { $_.FullName }
+
+	foreach ($SourceFile in $SourceFiles)
+	{
+		# Mark executable for the current user, which should be sufficient for Docker...?
+		& chmod u+x $SourceFile
+	}
+}
+
 #########################################
 
 Write-Host "Preparing Docker Compose files for $($Parameters.RegistryUri)..."
@@ -490,7 +503,10 @@ if ($Extensions.Count -gt 0)
 
 	foreach ($Extension in $Extensions)
 	{
-		$Extension.Configure($TargetPath, $CoreParameters)
+		if ($null -ne ($Extension | Get-Member Configure))
+		{
+			$Extension.Configure($TargetPath, $CoreParameters)
+		}
 
 		if ($null -ne ($Extension | Get-Member GetComposeFiles))
 		{
@@ -577,6 +593,8 @@ if ($Parameters.GenerateCertificate -eq $true)
 		}
 		[System.IO.File]::WriteAllText("$CertificateFile.key", $RawString)
 	}
+
+	$CoreParameters.ComposeFiles += "docker-compose.ss.yml"
 }
 
 #########################################

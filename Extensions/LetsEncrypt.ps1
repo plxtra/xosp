@@ -65,7 +65,7 @@ class LetsEncryptInstance
 		Write-Host "================================================================================"
 	}
 
-	Install([string] $TargetPath, [PSObject] $Parameters, [array] $ComposeArgs)
+	PreInstall([string] $TargetPath, [PSObject] $Parameters, [array] $ComposeArgs)
 	{
 		if ($Parameters.RootDomainName.EndsWith("localhost"))
 		{
@@ -138,11 +138,11 @@ class LetsEncryptInstance
 
 	PostInstall([string] $TargetPath, [PSObject] $Parameters)
 	{
+		Write-Host "================================================================================"
 		Write-Host "MANUAL STEP REQUIRED:"
 		Write-Host "  For LetsEncrypt certificate renewal, a script has been prepared at:"
 		Write-Host "    $(Join-Path (Split-Path $TargetPath) "XOSP-Renew.ps1")"
 		Write-Host "  This script must be scheduled to run every ~90 days to ensure HTTPS remains valid."
-		Write-Host "================================================================================"
 	}
 
 	Renew([string] $TargetPath, [PSObject] $Parameters, [array] $ComposeArgs)

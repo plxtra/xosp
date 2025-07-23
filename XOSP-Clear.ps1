@@ -15,13 +15,13 @@ if (!(Test-Path $ParamsSource))
 
 #########################################
 
-$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
+# Prepare our docker compose arguments
+$ComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
 #$ComposeArgs += @("--progress", "quiet")
 
-if ($Parameters.ForwardPorts)
+foreach ($FileName in $Parameters.ComposeFiles)
 {
-	# Include port forwarding on non-linux hosts
-	$ComposeArgs += @("--file", $(Join-Path $TargetPath "docker-compose.ports.yml"))
+	 $ComposeArgs += @("--file", $(Join-Path $TargetPath $FileName))
 }
 
 $Choices = "&Clear", "&Abort"

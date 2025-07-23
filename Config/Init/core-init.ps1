@@ -164,3 +164,11 @@ if ($AutoAccountList.length -gt 0)
 		& "/tasks/account-issue-bulk.ps1" -Accounts $AutoAccountList -Symbols $AutoSymbolList -Amount 1000 -OnlyIfZero
 	}
 }
+
+foreach ($Extension in $Extensions)
+{
+	if ($null -ne ($Extension | Get-Member Install))
+	{
+		$Extension.Install($TargetPath, $Parameters)
+	}
+}

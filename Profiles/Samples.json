@@ -1,14 +1,4 @@
 {
-	// Environment Settings
-	"RootDomainName": "xosp.localhost", // We generate a wildcard certificate, so straight localhost is invalid as *.localhost won't be accepted by a browser (you can't wildcard a tld)
-
-	// Docker Settings
-	"RegistryUri": "public.ecr.aws/motifmarkets/", // For loading container images from a custom registry (eg: Amazon ECR). Needs a trailing slash
-	"RegistryNamespace": "plxtra/", // Namespace to append to the URI, if any
-
-	// Market Settings
-	"MarketShortCode": "XS", // The short code for the market in front-end applications. If null, defaults to MarketCode
-
 	"Extensions": [
 		{"Name":"Recordings", "Market":"ASX", "Dates":["20220502"]} // Configures the environment with a repeating playback of some sample ASX data, "20220503", "20220504", "20220505", "20220506"
 	]

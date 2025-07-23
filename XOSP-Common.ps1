@@ -65,14 +65,21 @@ else
 
 			foreach ($Pair in $SourceParams.GetEnumerator())
 			{
-				$Parameters[$Pair.Key] = $Pair.Value
+				if ($Pair.Value -is [array] -and $Parameters.ContainsKey($Pair.Key))
+				{
+					$Parameters[$Pair.Key] += $Pair.Value
+				}
+				else
+				{
+					$Parameters[$Pair.Key] = $Pair.Value
+				}
 			}
 		}
 	}
 
 	# Load the default values. We'll apply these to any properties not set (or set to null) by the profiles
 	$private:DefaultsPath = Join-Path $PSScriptRoot "Config" "Init" "init-defaults.ps1"
-	$private:Defaults = & $private:DefaultsPath
+	$private:Defaults = & $private:DefaultsPath -Parameters $Parameters
 
 	foreach ($Pair in $private:Defaults.GetEnumerator())
 	{

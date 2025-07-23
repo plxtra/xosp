@@ -12,4 +12,4 @@ COPY --from=${RegistryUri}${RegistryNamespace}sessions-control:${ImageTag} /app 
 COPY ${CertificateFile}.crt /usr/local/share/ca-certificates/xosp-root.crt
 RUN update-ca-certificates
 
-ENTRYPOINT ["/usr/bin/pwsh"]
+ENTRYPOINT ["/usr/bin/pwsh", "-NoLogo"]

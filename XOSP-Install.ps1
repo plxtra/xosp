@@ -120,7 +120,7 @@ foreach ($FileName in $Parameters.ComposeFiles)
 
 $UpArgs = @("up", "--no-recreate", "--wait")
 $RunArgs = @("run", "--rm", "--quiet-pull")
-$InitArgs = @($RunArgs, "--volume", ((Join-Path $TargetPath "Init") + ":/init"))
+$InitArgs = @($RunArgs, "--volume", ((Join-Path $TargetPath "Init") + ":/init:ro"))
 
 #########################################
 
@@ -192,11 +192,12 @@ if (Test-Path $UpgradePath)
 
 #########################################
 
-if ($Extensions.Count -gt 0)
+# Pre-installation for any extensions
+foreach ($Extension in $Extensions)
 {
-	foreach ($Extension in $Extensions)
+	if ($null -ne ($Extension | Get-Member PreInstall))
 	{
-		$Extension.Install($TargetPath, $Parameters, $ComposeArgs)
+		$Extension.PreInstall($TargetPath, $Parameters, $ComposeArgs)
 	}
 }
 
@@ -308,10 +309,39 @@ if ($Parameters.RootDomainName.EndsWith("localhost"))
 	Set-Content $TargetFile -Value $SourceContent.ToString() > $null
 }
 
+#########################################
+
 $HttpsUri = $Parameters.HttpsUri
 
+# Post-Installation for extensions
+foreach ($Extension in $Extensions)
+{
+	if ($null -ne ($Extension | Get-Member PostInstall))
+	{
+		$Extension.PostInstall($TargetPath, $Parameters)
+	}
+}
+
+if ($Parameters.RootDomainName.EndsWith("localhost"))
+{
+	Write-Host "================================================================================"
+	Write-Host "MANUAL STEP REQUIRED:"
+	Write-Host "  A 'hosts' file has been generated for $($Parameters.RootDomainName) at:"
+	Write-Host "    $(Join-Path $TargetPath `"hosts`")"
+	Write-Host "  Copy the contents of this 'hosts' file to your platform-specific hosts file to enable DNS resolution."
+}
+
+if ($Parameters.GenerateCertificate)
+{
+	Write-Host "================================================================================"
+	Write-Host "MANUAL STEP REQUIRED:"
+	Write-Host "  A self-signed certificate has been generated at:"
+	Write-Host "    $(Join-Path $TargetPath $Parameters.CertificateFile).crt"
+	Write-Host "  Install this certificate file into your system or browser certificate store to enable HTTPS."
+}
+
 Write-Host "================================================================================"
-Write-Host "Installation complete. There may be further manual steps required - see below."
+Write-Host "Installation complete. There may be further manual steps required - see above."
 Write-Host "Once completed, the system can be accessed with the login '$($Parameters.AdminUser)' and password '$($Parameters.AdminPassword)'"
 Write-Host "- Trading Terminal: https://motif.${HttpsUri}/"
 Write-Host "                    https://arclight.${HttpsUri}/"
@@ -320,32 +350,3 @@ Write-Host "- Registry for cash and holdings management: https://foundry.${Https
 Write-Host "- User Account management: https://auth.${HttpsUri}/"
 Write-Host "Environment logs and temporary databases will be stored at $($Parameters.SharedDataPath)"
 Write-Host "================================================================================"
-
-if ($Parameters.RootDomainName.EndsWith("localhost"))
-{
-	Write-Host "MANUAL STEP REQUIRED:"
-	Write-Host "  A 'hosts' file has been generated for $($Parameters.RootDomainName) at:"
-	Write-Host "    $(Join-Path $TargetPath `"hosts`")"
-	Write-Host "  Copy the contents of this 'hosts' file to your platform-specific hosts file to enable DNS resolution."
-	Write-Host "================================================================================"
-}
-
-if ($Parameters.GenerateCertificate)
-{
-	Write-Host "MANUAL STEP REQUIRED:"
-	Write-Host "  A self-signed certificate has been generated at:"
-	Write-Host "    $(Join-Path $TargetPath $Parameters.CertificateFile).crt"
-	Write-Host "  Install this certificate file into your system or browser certificate store to enable HTTPS."
-	Write-Host "================================================================================"
-}
-
-if ($Extensions.Count -gt 0)
-{
-	foreach ($Extension in $Extensions)
-	{
-		if ($null -ne ($Extension | Get-Member PostInstall))
-		{
-			$Extension.PostInstall($TargetPath, $Parameters)
-		}
-	}
-}

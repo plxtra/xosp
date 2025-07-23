@@ -9,6 +9,7 @@
 	//"RegistryNamespace": "plxtra/", // Namespace to append to the URI, if any
 	//"ComposeProject": "xosp", // The name for the docker compose project to group containers. Use for multiple installations on a single machine
 	//"SharedDataPath": "~/Plxtra/XOSP", // The local host path in which to store service data. If null, defaults to a host-specific path
+	//"UID": 1654 // The Linux User ID used for non-root containers. Default in the .Net images is 1654 for 'app'
 
 	// Database Settings
 	//"DbServer": "postgres", // Use the PostgreSQL container in the docker-compose, or change to use an external server (eg: Amazon RDS)

@@ -17,11 +17,11 @@ class RecordingsInstance
 
 	Configure([string] $TargetPath, [PSObject] $Parameters)
 	{
-		$RecordingPath = Join-Path $Parameters.SharedDataPath "Zenith" "Temporal" "Market" $this.Market
+		$RecordingPath = Join-Path $TargetPath "Zenith" "Temporal" "Market" $this.Market
 
 		Write-Host "Configuring recordings for $($this.Market)..."
 
-		# Download the temporal market metadata to the Shared Data folder
+		# Download the temporal market metadata to the configuration folder
 		$BaseUri = [RecordingsInstance]::RootUrl + $this.Market
 
 		$Recordings = @()
@@ -100,39 +100,11 @@ class RecordingsInstance
 		$ConfigBody.Save($ConfigFilePath, [SaveOptions]::None)
 	}
 
-	Install([string] $TargetPath, [PSObject] $Parameters, [array] $ComposeArgs)
+	Install([string] $TargetPath, [PSObject] $Parameters)
 	{
-		$RecordingPath = Join-Path $Parameters.SharedDataPath "Zenith" "Temporal" "Market" $this.Market
-
 		Write-Host "Downloading recordings for $($this.Market)..."
 
-		# Download the temporal market recordings to the Shared Data folder
-		$BaseUri = [RecordingsInstance]::RootUrl + $this.Market
-
-		if (-not (Test-Path $RecordingPath))
-		{
-			New-Item -Path $RecordingPath -ItemType Directory > $null
-		}
-
-		foreach ($Date in $this.Dates)
-		{
-			# Check and download the tar file
-			$SourceUri = $BaseUri + "/$Date.tar"
-			$OutputPath = Join-Path $RecordingPath "$Date.tar"
-
-			if (-not (Test-Path $OutputPath))
-			{
-				$TempPath = Join-Path $RecordingPath "$Date.tar.part"
-
-				Write-Host "`tDownloading recording from $SourceUri..."
-
-				# Download to a temp file, resuming if necessary
-				Invoke-WebRequest -Uri $SourceUri -OutFile $TempPath -Resume
-
-				# Once the download is complete, we can then rename it to the final name
-				Move-Item -Path $TempPath -Destination $OutputPath
-			}
-		}
+		& "/tasks/download-recordings.ps1" -Market $this.Market -Dates ($this.Dates -join ',')
 	}
 
 	[string[]] GetSampleMarkets()
