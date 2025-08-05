@@ -120,16 +120,6 @@ foreach ($FileName in $Parameters.ComposeFiles)
 
 $UpArgs = @("up", "--no-recreate", "--wait")
 $RunArgs = @("run", "--rm", "--quiet-pull")
-$InitArgs = @($RunArgs, "--volume", ((Join-Path $TargetPath "Init") + ":/init:ro"))
-
-#########################################
-
-if ($AlwaysPull -and $ExpectPullThrottling)
-{
-	# Some registries have throttling applied to pull requests, so we do this slow
-	& docker @ComposeArgs --parallel 1 pull --policy always
-	FailWithError "Unable to pull the XOSP images."
-}
 
 # Pre-create all our containers at once. We'll bring them up once their dependencies are configured
 $CreateArgs = @("create", "--remove-orphans")
@@ -140,12 +130,26 @@ if ($AlwaysPull -and -not $ExpectPullThrottling)
 	$CreateArgs += @("--pull", "always")
 }
 
+# Some registries have throttling applied to pull requests, so we disable parallelism and preload the images
+if ($AlwaysPull -and $ExpectPullThrottling)
+{
+	& docker @ComposeArgs --parallel 1 pull --policy always
+	FailWithError "Unable to pull the XOSP images."
+}
+
 #########################################
 
 $UpgradePath = Join-Path $TargetPath "Init" "upgrade-required"
 
 if (Test-Path $UpgradePath)
 {
+	if ($SkipInit)
+	{
+		Write-Warning "-SkipInit is invalid, upgrade is required"
+
+		exit -1
+	}
+
 	$UpgradeVersion = Get-Content -Raw $UpgradePath
 	Write-Host "Upgrading Installation from $UpgradeVersion to $($Parameters.Version)..."
 
@@ -190,19 +194,6 @@ if (Test-Path $UpgradePath)
 	Remove-Item $UpgradePath
 }
 
-#########################################
-
-# Pre-installation for any extensions
-foreach ($Extension in $Extensions)
-{
-	if ($null -ne ($Extension | Get-Member PreInstall))
-	{
-		$Extension.PreInstall($TargetPath, $Parameters, $ComposeArgs)
-	}
-}
-
-#########################################
-
 if ($SkipInit)
 {
 	$UpArgs = @("up", "--wait")
@@ -222,38 +213,49 @@ if ($SkipInit)
 	exit
 }
 
+#########################################
+
+Write-Host "Initialising environment..."
+
+# First time we run the control tool, we force a rebuild, since docker won't do it automatically even if the dockerfile changes
+# Create a persistent container for initialisation, which we can quickly invoke commands inside
+& docker @ComposeArgs up --quiet-pull --build --detach control-init
+#$ControlContainer = "$($Parameters.ComposeProject)-control-init-1"
+
+Write-Host "`tShared Volume permissions..."
+# Grant permission on the shared folder to all users, so both root and non-root containers can both create their folders
+#& docker exec $ControlContainer bash -c "chmod a+rw /root/.local/share/Paritech"
+& docker @ComposeArgs exec control-init bash -c "chmod a+rw /root/.local/share/Paritech"
+
+# Pre-installation for any extensions
+foreach ($Extension in $Extensions)
+{
+	if ($null -ne ($Extension | Get-Member PreInstall))
+	{
+		$Extension.PreInstall($TargetPath, $Parameters, $ComposeArgs)
+	}
+}
+
+#########################################
+
 Write-Host "Initialising Docker Containers from $($Parameters.RegistryUri)..."
+
 & docker @ComposeArgs @CreateArgs
 FailWithError "Unable to create the XOSP containers."
 
 #########################################
 
-# Does our Postgres DB have any content yet?
-$UsageData = & docker system df --verbose --format json | ConvertFrom-Json
-$PgDataVolumeName = $Parameters.ComposeProject + "_pgdata"
-$PgDataVolume = $UsageData.Volumes | Where-Object { $_.Name -eq $PgDataVolumeName }
-
-# Start our support services like Postgres and Redis
-if ($null -eq $PgDataVolume -or $PgDataVolume.Size -eq "0B")
-{
-	Write-Host "Starting Support services and initialising database, this may take a few moments..."
-}
-else
-{
-	# If we already have data inside our pgdata volume, we probably won't be running database initialisation
-	Write-Host "Starting Support services..."
-}
+Write-Host "Starting Support services..."
 
 & docker @ComposeArgs @UpArgs postgres redis auth
 FailWithError "Unable to bring up all support services."
-
 #TODO: Remove the initialisation mount binding from postgres?
 
 #########################################
 
 # Exercise the REST API to populate client ids
-# First time we run the control tool, we force a rebuild, since docker won't do it automatically even if the dockerfile changes
-& docker @ComposeArgs @InitArgs --build control "/init/auth-init.ps1" -UserName $Parameters.AdminUser -Password $Parameters.AdminPassword
+#& docker exec $ControlContainer pwsh "/init/auth-init.ps1" -UserName $Parameters.AdminUser -Password $Parameters.AdminPassword
+& docker @ComposeArgs exec control-init pwsh -Command "/init/auth-init.ps1" -UserName $Parameters.AdminUser -Password $Parameters.AdminPassword
 FailWithError "Unable to initialise the Auth Server database."
 
 Write-Host "Starting Core Application services..."
@@ -267,7 +269,7 @@ Write-Host "Initialising FIX Sessions..."
 FailWithError "Unable to initialise the FIX Sessions."
 
 Write-Host "Initialising Core Applications..."
-& docker @ComposeArgs @InitArgs control -command "/init/core-init.ps1"
+& docker @ComposeArgs exec control-init pwsh -Command "/init/core-init.ps1"
 FailWithError "Unable to initialise the Core Applications."
 
 #########################################
@@ -290,9 +292,10 @@ FailWithError "Unable to bring up Frontend Services."
 
 #########################################
 
+Write-Host "Finalising installation..."
+
 if ($Parameters.RootDomainName.EndsWith("localhost"))
 {
-	Write-Host "Preparing Networking..."
 
 	$ContainerIP = "127.0.0.1"
 	
@@ -309,10 +312,6 @@ if ($Parameters.RootDomainName.EndsWith("localhost"))
 	Set-Content $TargetFile -Value $SourceContent.ToString() > $null
 }
 
-#########################################
-
-$HttpsUri = $Parameters.HttpsUri
-
 # Post-Installation for extensions
 foreach ($Extension in $Extensions)
 {
@@ -321,6 +320,12 @@ foreach ($Extension in $Extensions)
 		$Extension.PostInstall($TargetPath, $Parameters)
 	}
 }
+
+& docker @ComposeArgs down control-init
+
+#########################################
+
+$HttpsUri = $Parameters.HttpsUri
 
 if ($Parameters.RootDomainName.EndsWith("localhost"))
 {

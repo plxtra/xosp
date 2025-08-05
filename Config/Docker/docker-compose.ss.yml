@@ -6,7 +6,7 @@ x-xosp-startup: &xosp-startup
       target: /startup/start.sh
   secrets:
     - certificate.crt
- 
+
 services:
   audit:
     <<: *xosp-startup
@@ -58,27 +58,27 @@ services:
   oms.prodigy:
     <<: *xosp-startup
     command: Paritech.OMS2.Trading.Prodigy.dll
-    
+
   prodigy.gateway:
     <<: *xosp-startup
     command: Paritech.Prodigy.Gateway.dll
-    
+
   prodigy.internal:
     <<: *xosp-startup
     command: Paritech.Prodigy.Internal.dll
-    
+
   prodigy.public:
     <<: *xosp-startup
     command: Paritech.Prodigy.Public.dll
-    
+
   sessions:
     <<: *xosp-startup
     command: Paritech.Sessions.Service.dll
-    
+
   watchmaker:
     <<: *xosp-startup
     command: Paritech.Watchmaker.RestApi.dll
-    
+
   zenith:
     <<: *xosp-startup
     command: Paritech.Zenith.Service.dll

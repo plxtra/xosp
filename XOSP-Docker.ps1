@@ -1,9 +1,4 @@
 #Requires -PSEDition Core -Version 7
-
-param(
-	[switch] $NoHeader
-)
-
 $TargetPath = Join-Path $PSScriptRoot "Docker"
 $ParamsSource = Join-Path $TargetPath "Init" "init-params.json"
 
@@ -19,17 +14,8 @@ if (!(Test-Path $ParamsSource))
 
 #########################################
 
-# Check for a Docker installation
-if ($null -eq (Get-Command docker -ErrorAction Ignore))
-{
-	Write-Host "Unable to locate Docker installation. Please ensure you have Docker Engine or Docker Desktop installed."
-
-	exit
-}
-
 # Prepare our docker compose arguments
 $ComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
-
 #$ComposeArgs += @("--progress", "quiet")
 
 foreach ($FileName in $Parameters.ComposeFiles)
@@ -37,11 +23,4 @@ foreach ($FileName in $Parameters.ComposeFiles)
 	 $ComposeArgs += @("--file", $(Join-Path $TargetPath $FileName))
 }
 
-$RunArgs = @("run", "-it", "--rm", "--quiet-pull")
-
-if (-not $NoHeader)
-{
-	Write-Host "Control Terminal for the Plxtra XOSP distribution"
-}
-
-& docker @ComposeArgs @RunArgs control @args
+Write-Host docker $ComposeArgs

@@ -33,13 +33,10 @@ if ($Choice -eq 1)
 	Write-Host "Aborted. No changes were made."
 	
 	exit
+
 }
 
-& docker @ComposeArgs down --volumes
-
-if (Test-Path $Parameters.SharedDataPath)
-{
-	Remove-Item -Path $Parameters.SharedDataPath -Recurse
-}
+# Init tool has a separate profile, so it won't be covered below
+& docker @ComposeArgs --profile control down --volumes
 
 Read-Host -Prompt "XOSP Environment cleared. Press Enter to finish"

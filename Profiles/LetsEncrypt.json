@@ -1,6 +1,6 @@
 {
 	"GenerateCertificate": false,
 	"Extensions": [
-		{"Name":"LetsEncrypt", "Testing": true}
+		{"Name":"LetsEncrypt", "AlwaysValidate": true}
 	]
 }

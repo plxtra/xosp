@@ -430,6 +430,33 @@ services:
       - default # Need to be connected to the default network for internet access (eg: to download recordings)
       - internal
 
+  control-init:
+    build:
+      context: .
+      dockerfile: Control/Dockerfile
+    command: -command "while ($$true) { Start-Sleep 1 }"
+    profiles:
+      - control
+    volumes:
+      - shared:/root/.local/share/Paritech
+      - shared:/usr/share/Paritech
+      - ./Tasks:/tasks:ro
+      - ./Init:/init:ro
+    configs:
+      - source: control.authority
+        target: /app/authority/appsettings.json
+      - source: control.foundry
+        target: /app/foundry/appsettings.json
+      - source: control.oms
+        target: /app/oms/appsettings.json
+      - source: control.prodigy
+        target: /app/prodigy/appsettings.json
+      - source: control.sessions
+        target: /app/sessions/appsettings.json
+    networks:
+      - default # Need to be connected to the default network for internet access (eg: to download recordings)
+      - internal
+
 networks:
   internal:
     internal: true

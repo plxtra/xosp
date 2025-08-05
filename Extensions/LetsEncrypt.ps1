@@ -7,6 +7,7 @@ class LetsEncryptInstance
 	[bool] $Testing = $false
 	[bool] $Interactive = $false
 	[bool] $RegisterEmail = $false
+	[bool] $AlwaysValidate = $false
 	[int] $ListenPort = 80
 
 	LetsEncryptInstance([PSObject] $Settings)
@@ -29,6 +30,11 @@ class LetsEncryptInstance
 		if ($Settings.RegisterEmail -eq $true)
 		{
 			$this.RegisterEmail = $true
+		}
+
+		if ($Settings.AlwaysValidate -eq $true)
+		{
+			$this.AlwaysValidate = $true
 		}
 	}
 
@@ -72,13 +78,29 @@ class LetsEncryptInstance
 			return
 		}
 
-		Write-Host "Preparing LetsEncrypt..."
+		Write-Host "`tLetsEncrypt..."
 
-		# If the main XOSP nginx is running, we can skip starting our own
-		$NginxStatus = & docker $ComposeArgs ps --no-trunc --format json nginx | ConvertTo-Json
+		# We want to check if we have a certificate or not, so we can decide whether to do the relatively expensive task of starting/restarting nginx in init mode
+		$HasCertificate = $false
 
-		$RunTempServer = $null -eq $NginxStatus -or $NginxStatus.State -ne "running"
+		$VolumeName = "$($Parameters.ComposeProject)_shared"
+		$RootDomainName = $Parameters.RootDomainName
 
+		$VolumeStatus = & docker volume inspect --format json $VolumeName 2>$null | ConvertFrom-Json
+
+		if ($null -ne $VolumeStatus -and $VolumeStatus.Count -eq 1)
+		{
+			# Volume exists, check if the certificate we expect is there. This also handles if the domain has changed
+			# We should have, or will soon have, the runtime image, since we use it for the control tool
+			$CertificateExists = & docker @ComposeArgs exec control-init pwsh -Command "Test-Path '/root/.local/share/Paritech/certbot/conf/live/$RootDomainName/fullchain.pem'"
+
+			if ($CertificateExists -eq "True")
+			{
+				$HasCertificate = $true
+			}
+		}
+
+		# Arguments we want to pass to Certbot
 		$AdditionalArgs = @()
 
 		if ($this.Testing)
@@ -105,12 +127,23 @@ class LetsEncryptInstance
 			$AdditionalArgs += @("-d", "${Subdomain}.$($Parameters.RootDomainName)")
 		}
 
-		if ($RunTempServer)
+		if (-not $HasCertificate)
 		{
-			$AltComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile), "--file", $(Join-Path $TargetPath "docker-compose.le-init.yml"))
+			$AltComposeArgs = $ComposeArgs.Clone()
 
-			# First we start nginx, so certbot can issue our certificates
-			& docker @AltComposeArgs up --no-recreate --wait nginx
+			# Rather than let certbot take over the port bindings, we leave that to nginx and link them with a shared volume for the www directory
+			# This needs an alternate configuration from the normal nginx setup, as the default will fail to start without the ssl certs (which we haven't issued yet)
+			$AltComposeArgs += @("--file", (Join-Path $TargetPath "docker-compose.le-init.yml"))
+
+			#Write-Host $AltComposeArgs
+
+			# For whatever reason, Docker won't create sub-folder volume binds if the folder doesn't exist,
+			# so we need to create a container that uses the shared volume (to create the volume) and then make the directories
+			& docker @AltComposeArgs create --force-recreate nginx
+			& docker @ComposeArgs exec control-init bash -c "mkdir -p /root/.local/share/Paritech/certbot/conf /root/.local/share/Paritech/certbot/www"
+
+			# If an nginx container exists, this will recreate and start it using the init configuration
+			& docker @AltComposeArgs up --wait nginx
 
 			# Run certbot
 			# - Use the local path within the docker container
@@ -119,10 +152,12 @@ class LetsEncryptInstance
 			# - ...Unless XOSP has added new domains, then expand the certificate to cover them
 			# - Don't schedule auto-renewal, as we're running in a temporary container
 			& docker @AltComposeArgs run --rm certbot certonly --webroot --webroot-path "/var/www/certbot" --cert-name $Parameters.RootDomainName --keep-until-expiring --expand --no-autorenew @AdditionalArgs
-			
-			& docker @AltComposeArgs down
+
+			# We shouldn't need to do anything about the nginx container, as Docker Compose should identify the difference between configurations and recreate automatically later
+			# FIX: Docker Compose on Linux doesn't seem to notice the configuration change, and needs a force recreate
+			& docker @ComposeArgs create --force-recreate nginx
 		}
-		else
+		elseif ($this.AlwaysValidate)
 		{
 			# Use the certbot configured in our existing install
 			& docker @ComposeArgs run --rm certbot certonly --webroot --webroot-path "/var/www/certbot" --cert-name $Parameters.RootDomainName --keep-until-expiring --expand --no-autorenew @AdditionalArgs
@@ -131,6 +166,9 @@ class LetsEncryptInstance
 			& docker @ComposeArgs exec nginx nginx -s reload
 		}
 
+		$CertificateExists = & docker @ComposeArgs exec control-init bash -c "chmod -R a+rX /root/.local/share/Paritech/certbot/conf/live /root/.local/share/Paritech/certbot/conf/archive"
+
+		# Final step, ensure the renew script is copied to the startup folder
 		$SourcePath = Join-Path $PSScriptRoot "LetsEncrypt" "XOSP-Renew.ps1"
 
 		Copy-Item -Path $SourcePath -Destination (Split-Path $TargetPath)

@@ -1,6 +1,4 @@
-# Compose file for initialising LetsEncrypt with XOSP. Designed to be used stand-alone
-name: ${PROJECT_NAME}-init
-
+# Compose file for initialising LetsEncrypt with XOSP. Designed to merge over docker-compose.yml
 services:
   certbot:
     image: certbot/certbot:latest
@@ -17,10 +15,7 @@ services:
           subpath: certbot/conf
 
   nginx:
-    image: nginx:stable
-    configs:
-      - source: nginx
-        target: /etc/nginx/conf.d/default.conf
+    secrets: !reset []
     volumes:
       - type: volume
         source: shared
@@ -28,14 +23,6 @@ services:
         read_only: true
         volume:
           subpath: certbot/www
-    healthcheck:
-      test: service nginx status || exit 1
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    ports:
-      - ${HTTP_PORT}:80
-      - ${HTTPS_PORT}:443
 
 configs:
   nginx:
