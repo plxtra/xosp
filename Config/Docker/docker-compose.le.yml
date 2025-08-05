@@ -1,0 +1,49 @@
+# Compose file for using LetsEncrypt with XOSP. Designed to merge over docker-compose.yml
+services:
+  auth:
+    secrets: !reset []
+    volumes:
+      - type: volume
+        source: shared
+        target: /etc/letsencrypt/
+        read_only: true
+        volume:
+          subpath: certbot/conf
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - type: volume
+        source: shared
+        target: /var/www/certbot
+        volume:
+          subpath: certbot/www
+      - type: volume
+        source: shared
+        target: /etc/letsencrypt/
+        volume:
+          subpath: certbot/conf
+    profiles:
+      - certbot
+
+  nginx:
+    secrets: !reset []
+    volumes:
+      - type: volume
+        source: shared
+        target: /var/www/certbot
+        read_only: true
+        volume:
+          subpath: certbot/www
+      - type: volume
+        source: shared
+        target: /etc/letsencrypt/
+        read_only: true
+        volume:
+          subpath: certbot/conf
+
+configs:
+  auth:
+    file: Auth/appsettings.le.json
+  nginx:
+    file: Nginx/nginx.le.conf

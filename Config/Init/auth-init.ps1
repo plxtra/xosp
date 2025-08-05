@@ -1,6 +1,8 @@
 #Requires -PSEDition Core -Version 7
 param(
-	[string] $BaseUri = "http://auth"
+	[string] $BaseUri = "http://auth",
+	[string] $UserName,
+	[string] $Password
 )
 
 $SourcePath = $PSScriptRoot
@@ -39,6 +41,9 @@ else
 
 # All additional columns represent extra claims for each role
 $ClaimTypes = $RolesConfiguration | Get-Member -MemberType NoteProperty | Where-Object { $_.Name -ne "Role" }
+$SecurePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+$Credentials = [pscredential]::new($UserName, $SecurePassword)
+$StandardArguments = @{MaximumRedirection = "0"; SkipHttpErrorCheck = $true; ErrorAction = "Ignore"; Authentication = "Basic"; Credential = $Credentials; AllowUnencryptedAuthentication = $true }
 
 #########################################
 
@@ -49,7 +54,6 @@ $ScopeConfiguration | ForEach-Object -Parallel {
 	function Sync-Scope
 	{
 		param (
-			[string] $BaseUri,
 			[string] $Name,
 			[string] $DisplayName = "",
 			[string] $Description = "",
@@ -61,7 +65,7 @@ $ScopeConfiguration | ForEach-Object -Parallel {
 			"Resources" = $Resources
 			} | ConvertTo-Json
 		
-		$Response = Invoke-WebRequest -Uri "$BaseUri/scope?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+		$Response = Invoke-WebRequest -Uri "$using:BaseUri/scope?mode=Update" -Method Post -ContentType "application/json" -Body $Body @using:StandardArguments
 
 		if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
 		{
@@ -88,7 +92,7 @@ $ScopeConfiguration | ForEach-Object -Parallel {
 	$Scope = $_
 	$Resources = $Scope.Resources -split ' '
 	
-	Sync-Scope -BaseUri $using:BaseUri -Name $Scope.Scope -DisplayName $Scope.DisplayName -Description $Scope.Description -Resources $Resources | Out-Null
+	Sync-Scope -Name $Scope.Scope -DisplayName $Scope.DisplayName -Description $Scope.Description -Resources $Resources | Out-Null
 }
 
 Write-Host '.' -NoNewline
@@ -97,7 +101,6 @@ $RolesConfiguration | ForEach-Object -Parallel {
 	function Sync-Role
 	{
 		param (
-			[string] $BaseUri,
 			[string] $Name,
 			[string[]] $ClaimTypes,
 			[string[]] $ClaimValues
@@ -107,7 +110,7 @@ $RolesConfiguration | ForEach-Object -Parallel {
 			"Name" = $Name
 			} | ConvertTo-Json
 		
-		$Response = Invoke-WebRequest -Uri "$BaseUri/role?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+		$Response = Invoke-WebRequest -Uri "$using:BaseUri/role?mode=Update" -Method Post -ContentType "application/json" -Body $Body @using:StandardArguments
 
 		if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
 		{
@@ -136,7 +139,7 @@ $RolesConfiguration | ForEach-Object -Parallel {
 				$ClaimType = [Uri]::EscapeDataString($ClaimTypes[$Index])
 				$ClaimValue = [Uri]::EscapeDataString($ClaimValues[$Index])
 				
-				$Response = Invoke-WebRequest -Uri "$BaseUri/role/byid/$RoleUID/claim/$ClaimType" -Method Post -ContentType "text/plain" -Body $ClaimValue -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+				$Response = Invoke-WebRequest -Uri "$BaseUri/role/byid/$RoleUID/claim/$ClaimType" -Method Post -ContentType "text/plain" -Body $ClaimValue @using:StandardArguments
 				
 				if ($Response.StatusCode -ne 204)
 				{
@@ -155,7 +158,7 @@ $RolesConfiguration | ForEach-Object -Parallel {
 	$Role = $_
 	$ClaimValues = $using:ClaimTypes | Select-Object { $Role[$_] }
 	
-	Sync-Role -BaseUri $using:BaseUri -Name $Role.Role -ClaimTypes $using:ClaimTypes -ClaimValues $ClaimValues | Out-Null
+	Sync-Role -Name $Role.Role -ClaimTypes $using:ClaimTypes -ClaimValues $ClaimValues | Out-Null
 }
 
 Write-Host '.' -NoNewline
@@ -164,7 +167,6 @@ $ClientApplications | ForEach-Object -Parallel {
 	function Sync-Client
 	{
 		param (
-			[string] $BaseUri,
 			[string] $ClientId,
 			[string] $ClientSecret,
 			[string[]] $Permissions,
@@ -182,7 +184,7 @@ $ClientApplications | ForEach-Object -Parallel {
 			"ConsentType" = $Consent; "ClientType" = $Confidential ? "confidential" : "public"
 			} | ConvertTo-Json
 		
-		$Response = Invoke-WebRequest -Uri "$BaseUri/client?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+		$Response = Invoke-WebRequest -Uri "$using:BaseUri/client?mode=Update" -Method Post -ContentType "application/json" -Body $Body @using:StandardArguments
 
 		if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
 		{
@@ -220,7 +222,7 @@ $ClientApplications | ForEach-Object -Parallel {
 	$Confidential = [Bool]::Parse($Application.Confidential)
 	$ClientSecret = $Confidential ? $Credentials.Secret : $null
 	
-	Sync-Client -BaseUri $using:BaseUri -ClientId $Credentials.ClientID -ClientSecret $ClientSecret -DisplayName $Application.DisplayName -Permissions $Permissions -Requirements $Requirements -Uris $Uris -LogoutUris $LogoutUris -Confidential $Confidential | Out-Null
+	Sync-Client -ClientId $Credentials.ClientID -ClientSecret $ClientSecret -DisplayName $Application.DisplayName -Permissions $Permissions -Requirements $Requirements -Uris $Uris -LogoutUris $LogoutUris -Confidential $Confidential | Out-Null
 }
 
 Write-Host '.'

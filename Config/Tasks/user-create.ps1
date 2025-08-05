@@ -28,6 +28,10 @@ if (!(Test-Path "/tasks/task-params.json"))
 
 $AuthorityControl = "/app/authority/Paritech.Authority.Control.dll"
 
+$SecurePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
+$Credentials = [pscredential]::new($AdminUser, $SecurePassword)
+$StandardArguments = @{MaximumRedirection = "0"; SkipHttpErrorCheck = $true; ErrorAction = "Ignore"; Authentication = "Basic"; Credential = $Credentials; AllowUnencryptedAuthentication = $true }
+
 #########################################
 
 function Sync-User
@@ -46,7 +50,7 @@ function Sync-User
 		"UserName" = $UserName; "Email" = $Email; "EmailConfirmed" = $false; "Password" = $Password
 		} | ConvertTo-Json
 	
-	$Response = Invoke-WebRequest -Uri "$AuthUri/user?mode=Update" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+	$Response = Invoke-WebRequest -Uri "$AuthUri/user?mode=Update" -Method Post -ContentType "application/json" -Body $Body @StandardArguments
 
 	if ($Response.StatusCode -ne 201 -and $Response.StatusCode -ne 302)
 	{
@@ -71,7 +75,7 @@ function Sync-User
 	if ($Roles.Count -gt 0)
 	{
 		$Body = $Roles | ConvertTo-Json -AsArray
-		$Response = Invoke-WebRequest -Uri "$AuthUri/user/byid/$UserUID/role" -Method Post -ContentType "application/json" -Body $Body -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+		$Response = Invoke-WebRequest -Uri "$AuthUri/user/byid/$UserUID/role" -Method Post -ContentType "application/json" -Body $Body @using:StandardArguments
 		
 		if ($Response.StatusCode -ne 204)
 		{
@@ -87,7 +91,7 @@ function Sync-User
 		$ClaimType = [Uri]::EscapeDataString($ClaimTypes[$Index])
 		$ClaimValue = [Uri]::EscapeDataString($ClaimValues[$Index])
 		
-		$Response = Invoke-WebRequest -Uri "$AuthUri/user/byid/$UserUID/claim/$ClaimType" -Method Post -ContentType "text/plain" -Body $ClaimValue -MaximumRedirection 0 -SkipHttpErrorCheck -ErrorAction Ignore
+		$Response = Invoke-WebRequest -Uri "$AuthUri/user/byid/$UserUID/claim/$ClaimType" -Method Post -ContentType "text/plain" -Body $ClaimValue @using:StandardArguments
 		
 		if ($Response.StatusCode -ne 204)
 		{

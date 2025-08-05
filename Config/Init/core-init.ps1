@@ -133,8 +133,15 @@ $SampleMarkets = @()
 # Include any extensions
 foreach ($Extension in $Extensions)
 {
-	$Markets += $Extension.GetMarkets()
-	$SampleMarkets += $Extension.GetSampleMarkets()
+	if ($null -ne ($Extension | Get-Member GetMarkets))
+	{
+		$Markets += $Extension.GetMarkets()
+	}
+
+	if ($null -ne ($Extension | Get-Member GetSampleMarkets))
+	{
+		$SampleMarkets += $Extension.GetSampleMarkets()
+	}
 }
 
 Write-Host "`tAdmin User $($Parameters.AdminUser)." -NoNewline
@@ -155,5 +162,13 @@ if ($AutoAccountList.length -gt 0)
 	{
 		# Provide an initial set of holdings
 		& "/tasks/account-issue-bulk.ps1" -Accounts $AutoAccountList -Symbols $AutoSymbolList -Amount 1000 -OnlyIfZero
+	}
+}
+
+foreach ($Extension in $Extensions)
+{
+	if ($null -ne ($Extension | Get-Member Install))
+	{
+		$Extension.Install($TargetPath, $Parameters)
 	}
 }

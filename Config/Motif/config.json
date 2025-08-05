@@ -8,18 +8,18 @@
   },
   "endpoints": {
     "motifServices": [
-      "https://svc.${RootUri}"
+      "https://svc.${HttpsUri}"
     ],
     "zenith": [
-      "wss://ws.${RootUri}/Zenith?version=2.0"
+      "wss://ws.${HttpsUri}/Zenith?version=2.0"
     ]
   },
   "openId": {
-    "authority": "https://auth.${RootUri}",
+    "authority": "https://auth.${HttpsUri}",
     "clientId": "${ClientID-MotifWeb}",
-    "redirectUri": "https://motif.${RootUri}/auth-callback",
-    "silentRedirectUri": "https://motif.${RootUri}/silent-refresh.html",
-    "postLogoutRedirectUri": "https://motif.${RootUri}/",
+    "redirectUri": "https://motif.${HttpsUri}/auth-callback",
+    "silentRedirectUri": "https://motif.${HttpsUri}/silent-refresh.html",
+    "postLogoutRedirectUri": "https://motif.${HttpsUri}/",
     "scope": "offline_access Zenith${AuthSuffix}/Trading Zenith${AuthSuffix}/Market Zenith${AuthSuffix}/News Zenith${AuthSuffix}/OrderPad Motif${AuthSuffix}/Service"
   },
   "defaultLayout": {

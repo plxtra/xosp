@@ -1,0 +1,99 @@
+# Compose file for using a self-signed certificate. Designed to merge over docker-compose.yml
+x-xosp-startup: &xosp-startup
+  entrypoint: bash /startup/start.sh # We need to re-supply the command in each service that uses this, as sadly this clears it, and command: null does not restore it
+  configs:
+    - source: startup
+      target: /startup/start.sh
+  secrets:
+    - certificate.crt
+
+services:
+  audit:
+    <<: *xosp-startup
+    command: Paritech.Audit.RestAPI.dll
+
+  auth:
+    entrypoint: bash /startup/start.sh
+    command: Paritech.AuthServer.dll
+    secrets:
+      - certificate.crt
+    #volumes:
+    #  - ./Startup:/startup:ro
+    configs:
+      - source: startup
+        target: /startup/start.sh
+
+  authority:
+    <<: *xosp-startup
+    command: Paritech.Authority.dll
+
+  expo:
+    <<: *xosp-startup
+    command: MotifMarkets.Expo.Web.dll
+
+  foundry.admin:
+    <<: *xosp-startup
+    command: Paritech.Foundry.AdminPortal.dll
+
+  foundry.hub:
+    <<: *xosp-startup
+    command: Paritech.Foundry.Hub.dll
+    
+  foundry.oms:
+    <<: *xosp-startup
+    command: Paritech.Foundry.Adapter.OMS2.dll
+    
+  foundry.prodigy:
+    <<: *xosp-startup
+    command: Paritech.Foundry.Adapter.Prodigy.dll
+    
+  motif.services:
+    <<: *xosp-startup
+    command: MotifMarkets.MotifServices.RestAPI.dll
+
+  oms.hub:
+    <<: *xosp-startup
+    command: Paritech.OMS2.Hub.dll
+
+  oms.prodigy:
+    <<: *xosp-startup
+    command: Paritech.OMS2.Trading.Prodigy.dll
+
+  prodigy.gateway:
+    <<: *xosp-startup
+    command: Paritech.Prodigy.Gateway.dll
+
+  prodigy.internal:
+    <<: *xosp-startup
+    command: Paritech.Prodigy.Internal.dll
+
+  prodigy.public:
+    <<: *xosp-startup
+    command: Paritech.Prodigy.Public.dll
+
+  sessions:
+    <<: *xosp-startup
+    command: Paritech.Sessions.Service.dll
+
+  watchmaker:
+    <<: *xosp-startup
+    command: Paritech.Watchmaker.RestApi.dll
+
+  zenith:
+    <<: *xosp-startup
+    command: Paritech.Zenith.Service.dll
+
+  nginx:
+    secrets:
+      - certificate.crt
+      - certificate.key
+
+configs:
+  startup:
+    file: Startup/start.sh
+
+secrets:
+  certificate.crt:
+    file: ${CERTIFICATE}.crt
+  certificate.key:
+    file: ${CERTIFICATE}.key

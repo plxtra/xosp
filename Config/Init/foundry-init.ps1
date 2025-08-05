@@ -43,6 +43,7 @@ $RegistryClassID, $IssuerClassID, $InvestorClassID, $AccountClassID = ($Job = @(
 	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
 	& dotnet $using:FoundryControl EntityClass Define XOSP $_.Owner $_.Name -Desc $_.Desc @MetaParams
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } # Do some juggling to ensure our results come out in order
+Wait-Job $Job > $null
 Remove-Job $Job
 
 Write-Host '.' -NoNewline
@@ -54,6 +55,7 @@ $CurrencyClassID, $TokenClassID = ($Job = @(
 ) | ForEach-Object -Parallel {
 	& dotnet $using:FoundryControl AssetClass Define XOSP $_.Owner $_.Name -Desc $_.Desc
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } # Do some juggling to ensure our results come out in order
+Wait-Job $Job > $null
 Remove-Job $Job
 
 Write-Host '.' -NoNewline
@@ -134,6 +136,7 @@ $Ledgers = @{}
 	$LedgerID = & dotnet $using:FoundryControl Ledger Define XOSP $_.Parent $_.Class $_.Name -Asset $_.Asset -Entity $_.Entity -Desc $_.Desc @MetaParams
 	@{Key=$_.Name;Value=$LedgerID}
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } | ForEach-Object { $Ledgers.Add($_.Key, $_.Value) }
+Wait-Job $Job > $null
 Remove-Job $Job
 
 Write-Host '.' -NoNewline
@@ -154,6 +157,7 @@ $DataTypes = @{}
 	$DataTypeID = & dotnet $using:FoundryControl Type Define XOSP $_.Owner $_.Class $_.Type $_.Name @MetaParams
 	@{Key=$_.Name;Value=$DataTypeID}
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } | ForEach-Object { $DataTypes.Add($_.Key, $_.Value) }
+Wait-Job $Job > $null
 Remove-Job $Job
 
 Write-Host '.' -NoNewline

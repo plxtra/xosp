@@ -1,8 +1,9 @@
 # This file contains shared code for XOSP operations, and is not meant to be executed directly
 param(
-	[Alias("Profile")]
-	[string] $ConfigProfile,
-	[switch] $UseCoreParams
+	[switch] $UseCoreParams,
+	[Parameter(ValueFromRemainingArguments=$true)]
+	[Alias("Profiles")]
+	[string[]] $ConfigProfiles
 )
 
 #########################################
@@ -15,50 +16,36 @@ if ($UseCoreParams)
 }
 else
 {
-	# Set some defaults, which may be changed by the params file
-	$private:ParamSources = @(
-		(Join-Path $PSScriptRoot "Config" "Init" "init-defaults.json"),
-		#(Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"), # We could theoretically apply the profile, and then the users overrides
-		(Join-Path $PSScriptRoot "XOSP-Params.json")
-	)
+	# Set some defaults, which may be changed by the selected profiles and user parameters
+	$private:ParamSources = @()
 
-	#########################################
-
-	$private:Defaults = @{
-		SharedDataPath = "~/Plxtra/XOSP"
-		ForwardPorts = $false;
-		SslPort = 443;
-		MarketTimeZone = "Utc"
-	}
-
-	# Setup some host-specific defaults
-	if ($IsWindows)
+	# Detect each profile, whether a .json or a full script
+	foreach ($ConfigProfile in $ConfigProfiles)
 	{
-		$private:Defaults.SharedDataPath = "${env:LOCALAPPDATA}\Plxtra\XOSP"
-		$private:Defaults.ForwardPorts = $true
-		$private:Defaults.SslPort = 8043
-	}
-	elseif ($IsMacOS)
-	{
-		$private:Defaults.ForwardPorts = $true
-		$private:Defaults.SslPort = 8043
-	}
+		$private:JsonPath = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.json"
 
-	$CurrentTimeZone = [TimeZoneInfo]::Local
-
-	if ($CurrentTimeZone.HasIanaId)
-	{
-		$private:Defaults.MarketTimeZone = $CurrentTimeZone.Id;
-	}
-	else
-	{
-		$IanaTimeZone = ""
-		
-		if ([TimeZoneInfo]::TryConvertWindowsIdToIanaId([TimeZoneInfo]::Local.Id, [ref] $IanaTimeZone))
+		if (Test-Path $private:JsonPath)
 		{
-			$private:Defaults.MarketTimeZone = $IanaTimeZone;
-		}	
+			$private:ParamSources += $private:JsonPath
+
+			continue
+		}
+		
+		$private:Ps1Path = Join-Path $PSScriptRoot "Profiles" "$ConfigProfile.ps1"
+
+		if (Test-Path $private:Ps1Path)
+		{
+			$private:ParamSources += $private:Ps1Path
+
+			continue
+		}
+
+		Write-Warning "Could not find a profile with the name '$ConfigProfile'"
+
+		exit -1
 	}
+
+	$private:ParamSources += Join-Path $PSScriptRoot "XOSP-Params.json"
 
 	#########################################
 
@@ -67,15 +54,33 @@ else
 	# Read in and override any parameters
 	foreach ($SourceParamPath in $private:ParamSources.GetEnumerator())
 	{
-		$SourceParams = Get-Content -Raw $SourceParamPath | ConvertFrom-Json -AsHashtable
-
-		foreach ($Pair in $SourceParams.GetEnumerator())
+		if ($SourceParamPath.EndsWith(".ps1"))
 		{
-			$Parameters[$Pair.Key] = $Pair.Value
+			# Script file, so execute and retrieve the altered parameters
+			$Parameters = & $SourceParamPath -Parameters $Parameters
+		}
+		else
+		{
+			$SourceParams = Get-Content -Raw $SourceParamPath | ConvertFrom-Json -AsHashtable
+
+			foreach ($Pair in $SourceParams.GetEnumerator())
+			{
+				if ($Pair.Value -is [array] -and $Parameters.ContainsKey($Pair.Key))
+				{
+					$Parameters[$Pair.Key] += $Pair.Value
+				}
+				else
+				{
+					$Parameters[$Pair.Key] = $Pair.Value
+				}
+			}
 		}
 	}
 
-	# Anything null or not set receives a default
+	# Load the default values. We'll apply these to any properties not set (or set to null) by the profiles
+	$private:DefaultsPath = Join-Path $PSScriptRoot "Config" "Init" "init-defaults.ps1"
+	$private:Defaults = & $private:DefaultsPath -Parameters $Parameters
+
 	foreach ($Pair in $private:Defaults.GetEnumerator())
 	{
 		if ($Parameters.ContainsKey($Pair.Key))
@@ -91,19 +96,29 @@ else
 
 	#########################################
 
-	# Some parameters need to get generated based on the final configuration
+	# Some parameters are generated based on the final configuration, to make life easier in other areas
 
 	# If we're specifying an SSL port (the default) then we want to have a suffix value we can insert into config files
-	if ($Parameters.SslPort -ne 443)
+	if ($Parameters.PublicHttpsPort -ne 443)
 	{
-		$Parameters.SslSuffix = ":" + $Parameters.SslPort
+		$Parameters.HttpsSuffix = ":" + $Parameters.PublicHttpsPort
 	}
 	else
 	{
-		$Parameters.SslSuffix = ""
+		$Parameters.HttpsSuffix = ""
 	}
 
-	$Parameters.RootUri = $Parameters.RootDomainName + $Parameters.SslSuffix
+	if ($Parameters.PublicHttpPort -ne 80)
+	{
+		$Parameters.HttpSuffix = ":" + $Parameters.PublicHttpPort
+	}
+	else
+	{
+		$Parameters.HttpSuffix = ""
+	}
+
+	$Parameters.HttpUri = $Parameters.RootDomainName + $Parameters.HttpSuffix
+	$Parameters.HttpsUri = $Parameters.RootDomainName + $Parameters.HttpsSuffix
 
 	$MarketCode = $Parameters.MarketCode
 
@@ -119,8 +134,8 @@ else
 #########################################
 
 # Create a few arrays that get referenced in multiple places
-$Databases = @("Audit", "Authority", "Doppler", "Foundry", "Herald", "MarketHoliday", "Motif", "OMS", "Prodigy", "Sessions", "Watchmaker")
-$SubDomains = @("arclight", "auth", "expo", "foundry", "iq", "motif", "svc", "ws")
+$Parameters.Databases = @("Audit", "Authority", "Doppler", "Foundry", "Herald", "MarketHoliday", "Motif", "OMS", "Prodigy", "Sessions", "Watchmaker")
+$Parameters.SubDomains = @("arclight", "auth", "expo", "foundry", "iq", "motif", "svc", "ws")
 
 #########################################
 

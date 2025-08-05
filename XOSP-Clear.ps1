@@ -15,13 +15,13 @@ if (!(Test-Path $ParamsSource))
 
 #########################################
 
-$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
+# Prepare our docker compose arguments
+$ComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
 #$ComposeArgs += @("--progress", "quiet")
 
-if ($Parameters.ForwardPorts)
+foreach ($FileName in $Parameters.ComposeFiles)
 {
-	# Include port forwarding on non-linux hosts
-	$ComposeArgs += @("--file", $(Join-Path $TargetPath "docker-compose.ports.yml"))
+	 $ComposeArgs += @("--file", $(Join-Path $TargetPath $FileName))
 }
 
 $Choices = "&Clear", "&Abort"
@@ -33,13 +33,10 @@ if ($Choice -eq 1)
 	Write-Host "Aborted. No changes were made."
 	
 	exit
+
 }
 
-& docker @ComposeArgs down --volumes
-
-if (Test-Path $Parameters.SharedDataPath)
-{
-	Remove-Item -Path $Parameters.SharedDataPath -Recurse
-}
+# Init tool has a separate profile, so it won't be covered below
+& docker @ComposeArgs --profile control down --volumes
 
 Read-Host -Prompt "XOSP Environment cleared. Press Enter to finish"

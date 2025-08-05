@@ -11,18 +11,17 @@ class RecordingsInstance
 
 	RecordingsInstance([PSObject] $Settings)
 	{
-		# TODO: Parse settings for this extension - market, dates, etc
 		$this.Market = $Settings.Market
 		$this.Dates = $Settings.Dates
 	}
 
 	Configure([string] $TargetPath, [PSObject] $Parameters)
 	{
-		$RecordingPath = Join-Path $Parameters.SharedDataPath "Zenith" "Temporal" "Market" $this.Market
+		$RecordingPath = Join-Path $TargetPath "Zenith" "Temporal" "Market" $this.Market
 
 		Write-Host "Configuring recordings for $($this.Market)..."
 
-		# Download the temporal market recordings to the Shared Data folder
+		# Download the temporal market metadata to the configuration folder
 		$BaseUri = [RecordingsInstance]::RootUrl + $this.Market
 
 		$Recordings = @()
@@ -78,23 +77,6 @@ class RecordingsInstance
 			}
 
 			$Recordings += $Recording
-
-			# Check and download the tar file
-			$SourceUri = $BaseUri + "/$Date.tar"
-			$OutputPath = Join-Path $RecordingPath "$Date.tar"
-
-			if (-not (Test-Path $OutputPath))
-			{
-				$TempPath = Join-Path $RecordingPath "$Date.tar.part"
-
-				Write-Host "`tDownloading recording from $SourceUri..."
-
-				# Download to a temp file, resuming if necessary
-				Invoke-WebRequest -Uri $SourceUri -OutFile $TempPath -Resume
-
-				# Once the download is complete, we can then rename it to the final name
-				Move-Item -Path $TempPath -Destination $OutputPath
-			}
 		}
 
 		# Update the Zenith service configuration
@@ -118,9 +100,11 @@ class RecordingsInstance
 		$ConfigBody.Save($ConfigFilePath, [SaveOptions]::None)
 	}
 
-	[string[]] GetMarkets()
+	Install([string] $TargetPath, [PSObject] $Parameters)
 	{
-		return @()
+		Write-Host "Downloading recordings for $($this.Market)..."
+
+		& "/tasks/download-recordings.ps1" -Market $this.Market -Dates ($this.Dates -join ',')
 	}
 
 	[string[]] GetSampleMarkets()

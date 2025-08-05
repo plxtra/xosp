@@ -19,13 +19,22 @@ if (!(Test-Path $ParamsSource))
 
 #########################################
 
-# "--project-directory", $TargetPath,
-$ComposeArgs = @("compose", "--file", $(Join-Path $TargetPath "docker-compose.yml"), "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile)) #, "--progress", "quiet")
-
-if ($Parameters.ForwardPorts)
+# Check for a Docker installation
+if ($null -eq (Get-Command docker -ErrorAction Ignore))
 {
-	# Include port forwarding on non-linux hosts
-	$ComposeArgs = @($ComposeArgs, "--file", $(Join-Path $TargetPath "docker-compose.ports.yml"))
+	Write-Host "Unable to locate Docker installation. Please ensure you have Docker Engine or Docker Desktop installed."
+
+	exit
+}
+
+# Prepare our docker compose arguments
+$ComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
+
+#$ComposeArgs += @("--progress", "quiet")
+
+foreach ($FileName in $Parameters.ComposeFiles)
+{
+	 $ComposeArgs += @("--file", $(Join-Path $TargetPath $FileName))
 }
 
 $RunArgs = @("run", "-it", "--rm", "--quiet-pull")
@@ -33,8 +42,6 @@ $RunArgs = @("run", "-it", "--rm", "--quiet-pull")
 if (-not $NoHeader)
 {
 	Write-Host "Control Terminal for the Plxtra XOSP distribution"
-
-
 }
 
-& docker @ComposeArgs @RunArgs --entrypoint bash control @args
+& docker @ComposeArgs @RunArgs control @args

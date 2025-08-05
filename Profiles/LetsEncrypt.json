@@ -1,0 +1,6 @@
+{
+	"GenerateCertificate": false,
+	"Extensions": [
+		{"Name":"LetsEncrypt", "AlwaysValidate": true}
+	]
+}
