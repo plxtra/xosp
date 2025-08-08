@@ -108,7 +108,7 @@ function Sync-User
 #########################################
 
 # Register against the Auth Server
-$UserID = Sync-User -AuthUri $TokenService -UserName $UserName -Password $Password -Email $UserName -Roles $Roles -ClaimTypes @() -ClaimValues @()
+$UserID = Sync-User -AuthUri $TokenService -UserName $UserName -Password $Password -Email $Email -Roles $Roles -ClaimTypes @() -ClaimValues @()
 
 Write-Host "." -NoNewline
 

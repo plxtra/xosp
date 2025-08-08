@@ -23,10 +23,10 @@ services:
     <<: *xosp-common
     image: ${DOCKER_REGISTRY}arclight-nginx:${IMAGE_TAG}
     volumes:
-      - ./Branding/Common:/app/branding:ro
+      - ./Branding/Common:/app/browser/branding:ro
     configs:
       - source: arclight
-        target: /app/config/config.json
+        target: /app/browser/config/config.json
 
   audit:
     <<: [*xosp-common, *xosp-depends-db]

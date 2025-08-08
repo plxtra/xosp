@@ -93,7 +93,7 @@ if ($null -ne $CoreParameters  -and $CoreParameters.Version -ne $XospVersion)
 if (!(Test-Path $ParamsPath) -or (Get-Item $ParamsPath).Size -eq 0)
 {
 	# If there's no user parameters, we want to grab the defaults
-	$DefaultParamsPath = Join-Path $TargetPath "Init" "user-params.json"
+	$DefaultParamsPath = Join-Path $SourcePath "Init" "user-params.json"
 
 	Copy-Item -Path $DefaultParamsPath -Destination $ParamsPath
 	
