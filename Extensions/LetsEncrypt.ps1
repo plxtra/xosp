@@ -50,6 +50,7 @@ class LetsEncryptInstance
 		if ($Parameters.PublicHttpPort -ne 80)
 		{
 			Write-Warning "To use LetsEncrypt, XOSP must be using an internet-accessible port 80. Your current port is $($Parameters.PublicHttpPort)"
+			Write-Warning "Modify your XOSP-Params.json file to ensure your HttpPort or PublicHttpPort is set to 80, and rerun Configure"
 
 			return
 		}

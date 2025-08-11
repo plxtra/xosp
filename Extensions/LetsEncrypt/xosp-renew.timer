@@ -1,0 +1,10 @@
+[Unit]
+Description=Run xosp-renew every 90 days
+Requires=xosp-renew.service
+[Timer]
+Unit=xosp-renew.service
+OnUnitInactiveSec=90d
+RandomizedDelaySec=15m
+AccuracySec=1s
+[Install]
+WantedBy=timers.target

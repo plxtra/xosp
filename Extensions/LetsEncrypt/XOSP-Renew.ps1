@@ -1,9 +1,8 @@
 #Requires -PSEDition Core -Version 7
 
 param(
-	[switch] $AlwaysPull = $false, # True to always pull images from the repository
-	[switch] $SkipInit = $false, # True to always skip initialisation, and just create the containers
-	[switch] $Verbose = $false
+	[Parameter(Position=0)]
+	[string] $Action = $null
 )
 
 $TargetPath = Join-Path $PSScriptRoot "Docker"
@@ -64,12 +63,112 @@ if ($null -eq $DockerVersion -or $null -eq $DockerVersion.Server)
 
 #########################################
 
-$ComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
-
-# If configured with LetsEncrypt, the .le.yml variant should already be included here
-foreach ($FileName in $Parameters.ComposeFiles)
+if ([String]::IsNullOrEmpty($Action))
 {
-	 $ComposeArgs += @("--file", $(Join-Path $TargetPath $FileName))
-}
+	# Default action, trigger the renewal with certbot inside docker
+	$ComposeArgs = @("compose", "--env-file", $(Join-Path $TargetPath $Parameters.DockerEnvFile))
 
-$Extension.Renew($TargetPath, $Parameters, $ComposeArgs)
+	# If configured with LetsEncrypt, the .le.yml variant should already be included here
+	foreach ($FileName in $Parameters.ComposeFiles)
+	{
+		$ComposeArgs += @("--file", $(Join-Path $TargetPath $FileName))
+	}
+
+	$Extension.Renew($TargetPath, $Parameters, $ComposeArgs)
+}
+else
+{
+	switch ($Action.ToLowerInvariant())
+	{
+		"install" {
+			if ($IsLinux)
+			{
+				if ($null -eq (Get-Command systemctl -ErrorAction Ignore))
+				{
+					Write-Host "XOSP Renewal auto-install only supports systemd"
+					
+					exit
+				}
+
+				$SystemdPath = Join-Path $HOME '.config' 'systemd' 'user'
+
+				if (-not (Test-Path $SystemdPath))
+				{
+					New-Item -Path $SystemdPath -ItemType Directory > $null
+				}
+
+				Copy-Item -Path "xosp-renew.service" -Destination $SystemdPath
+				Copy-Item -Path "xosp-renew.timer" -Destination $SystemdPath
+
+				& systemctl --user daemon-reload
+				& systemctl --user enable xosp-renew.timer
+				& systemctl --user start xosp-renew.timer
+			}
+			elseif ($IsWindows)
+			{
+				# The script is tagged to require Powershell 7, which should always use pwsh.exe
+				$Action = New-ScheduledTaskAction -Execute (Join-Path $PSHome "pwsh.exe") -WorkingDirectory $PSScriptRoot -Argument ".\XOSP-Renew.ps1"
+				$Trigger = New-ScheduledTaskTrigger -Daily -DaysInterval 90 -At 12pm
+				$Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries
+
+				Register-ScheduledTask -TaskName "XOSP LetsEncrypt Renewal" -Action $Action -Trigger $Trigger -User $env:USERNAME
+			}
+			else
+			{
+				Write-Host "XOSP Renewal auto-install does not support your operating system"
+				
+				exit
+			}
+		}
+		"uninstall" {
+			if ($IsLinux)
+			{
+				if ($null -eq (Get-Command systemctl -ErrorAction Ignore))
+				{
+					Write-Host "XOSP Renewal auto-uninstall only supports systemd"
+					
+					exit
+				}
+
+				$SystemdPath = Join-Path $HOME '.config' 'systemd' 'user'
+				$TimerPath = Join-Path $SystemdPath "xosp-renew.timer"
+
+				if (-not (Test-Path $TimerPath))
+				{
+					Write-Host "No systemd renewal timer could be found"
+
+					exit
+				}
+
+				& systemctl --user stop xosp-renew.timer
+				& systemctl --user disable xosp-renew.timer
+
+				Remove-Item (Join-Path $SystemdPath "xosp-renew.service")
+				Remove-Item $TimerPath
+
+				& systemctl --user daemon-reload
+
+				# TODO: Clean up ~/.config/systemd/user if it's empty?
+			}
+			elseif ($IsWindows)
+			{
+				$Task = Get-ScheduledTask -TaskName "XOSP LetsEncrypt Renewal"
+
+				if ($null -eq $Task)
+				{
+					Write-Host "No Scheduled Task could be found"
+					
+					exit
+				}
+
+				Unregister-ScheduledTask -InputObject $Task
+			}
+			else
+			{
+				Write-Host "XOSP Renewal auto-uninstall does not support your operating system"
+				
+				exit
+			}
+		}
+	}	
+}

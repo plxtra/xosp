@@ -6,7 +6,7 @@ param(
 	[string[]] $ConfigProfiles
 )
 
-$XospVersion = 0.91
+$XospVersion = 0.92
 
 #########################################
 
