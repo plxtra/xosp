@@ -123,7 +123,7 @@ services:
     environment:
       - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
     volumes:
-      - ${SHARED_DATA}/Foundry-OMS2:/usr/share/Paritech/Foundry-OMS2
+      - shared:/usr/share/Paritech #/Foundry-OMS2
     configs:
       - source: foundry.oms
         target: /app/appsettings.${ENVIRONMENT}.json
@@ -137,7 +137,7 @@ services:
     environment:
       - FOUNDRY_ENVIRONMENT=${ENVIRONMENT}
     volumes:
-      - ${SHARED_DATA}/Foundry-Processor:/usr/share/Paritech/Foundry-Processor
+      - shared:/usr/share/Paritech #/Foundry-Processor
     configs:
       - source: foundry.proc
         target: /app/appsettings.${ENVIRONMENT}.json

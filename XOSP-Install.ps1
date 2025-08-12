@@ -119,7 +119,6 @@ foreach ($FileName in $Parameters.ComposeFiles)
 }
 
 $UpArgs = @("up", "--no-recreate", "--wait")
-$RunArgs = @("run", "--rm", "--quiet-pull")
 
 # Pre-create all our containers at once. We'll bring them up once their dependencies are configured
 $CreateArgs = @("create", "--remove-orphans")

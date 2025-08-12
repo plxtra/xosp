@@ -1,5 +1,9 @@
 #Requires -PSEDition Core -Version 7
 
+param(
+	[switch] $Open
+)
+
 $TargetPath = Join-Path $PSScriptRoot "Docker"
 $ParamsSource = Join-Path $TargetPath "Init" "init-params.json"
 
@@ -91,7 +95,17 @@ elseif ($IsWindows)
 		}
 	}
 
-	Write-Host "Logs are available at $VolumePath"
+	if ($Open)
+	{
+		# On Windows, opens Explorer to the target folder
+		# On MacOS, uses /usr/bin/open on the target folder
+		# On Linux, tries xdg-open, gnome-open or kfmclient to open the appropriate file browser
+		Invoke-Item $VolumePath
+	}
+	else
+	{
+		Write-Host "Logs are available at $VolumePath"
+	}
 }
 else
 {

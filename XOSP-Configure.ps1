@@ -573,8 +573,9 @@ if ($Parameters.GenerateCertificate -eq $true)
 		$NotAfter = [System.DateTimeOffset]::Now.AddDays($CertificateDuration)
 		$Certificate = $CertRequest.CreateSelfSigned($NotBefore, $NotAfter)
 
-		if (-not ($IsLinux -or $IsMacOS))
+		if ($IsWindows)
 		{
+			# Required on Windows
 			$Certificate.FriendlyName = $FriendlyName
 		}
 
