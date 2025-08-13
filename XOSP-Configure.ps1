@@ -6,6 +6,7 @@ param(
 	[string[]] $ConfigProfiles
 )
 
+# Update this for a new public release
 $XospVersion = 0.92
 
 #########################################
@@ -105,7 +106,7 @@ else
 }
 
 # Execute our common sub-script. Dot sourcing to share the execution context and inherit any variables
-. (Join-Path $PSScriptRoot "XOSP-Common.ps1") @ConfigProfiles
+. (Join-Path $PSScriptRoot "XOSP-Common.ps1") -Version $XospVersion @ConfigProfiles
 
 # We want to copy the parameters for later, as we'll be sticking credentials and stuff inside the original
 $CoreParameters = $Parameters.Clone()

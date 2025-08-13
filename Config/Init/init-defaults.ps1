@@ -12,7 +12,7 @@ $Defaults = @"
 	"RegistryNamespace": "", // Namespace to append to the URI, if any
 	"ComposeProject": "xosp", // The name for the docker compose project to group containers. Use for multiple installations on a single machine
 	"DockerEnvFile": ".env", // The docker env file to pass to compose during installation, if you want to customise things
-	"ImageTag": "0.91", // The tag for the XOSP images to pull
+	"ImageTag": null, // The tag for the XOSP images to pull
 	"NonRootUID": 1654, // The Linux User ID used for non-root containers. Default in the .Net images is 1654 for 'app'
 
 	// Host settings
@@ -60,6 +60,7 @@ $Defaults = @"
 $Defaults.PublicHttpPort = $Parameters.HttpPort ?? 80
 $Defaults.PublicHttpsPort = $Parameters.HttpsPort ?? 443
 $Defaults.AdminEmail = "admin@" + $Parameters.RootDomainName
+$Defaults.ImageTag = $Parameters.Version
 
 # Setup some platform-specific defaults
 if ($IsWindows)

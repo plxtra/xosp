@@ -1,6 +1,7 @@
 # This file contains shared code for XOSP operations, and is not meant to be executed directly
 param(
 	[switch] $UseCoreParams,
+	[string] $Version = "",
 	[Parameter(ValueFromRemainingArguments=$true)]
 	[Alias("Profiles")]
 	[string[]] $ConfigProfiles
@@ -49,7 +50,7 @@ else
 
 	#########################################
 
-	$Parameters = @{}
+	$Parameters = @{Version=$Version}
 
 	# Read in and override any parameters
 	foreach ($SourceParamPath in $private:ParamSources.GetEnumerator())
