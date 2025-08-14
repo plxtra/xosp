@@ -223,8 +223,8 @@ Write-Host "Initialising environment..."
 
 Write-Host "`tShared Volume permissions..."
 # Grant permission on the shared folder to all users, so both root and non-root containers can both create their folders
-#& docker exec $ControlContainer bash -c "chmod a+rw /root/.local/share/Paritech"
-& docker @ComposeArgs exec control-init bash -c "chmod a+rw /root/.local/share/Paritech"
+# Make sure we set the permissions on both possible mounting locations
+& docker @ComposeArgs exec control-init bash -c "chmod a+rw /root/.local/share/Paritech /usr/share/Paritech"
 
 # Pre-installation for any extensions
 foreach ($Extension in $Extensions)

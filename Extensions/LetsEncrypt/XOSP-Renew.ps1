@@ -78,6 +78,40 @@ if ([String]::IsNullOrEmpty($Action))
 }
 else
 {
+	function Copy-WithReplace
+	{
+		[CmdletBinding()]
+		param (
+			[String] $SourcePath,
+			[String] $TargetPath,
+			[PSObject] $Replacements
+		)
+		
+		$SourceContent = New-Object System.Text.StringBuilder(Get-Content $SourcePath -Raw)
+			
+		foreach ($KeyValue in $Replacements.GetEnumerator())
+		{
+			$SearchValue = '${' + $KeyValue.Key + '}'
+			
+			$SourceContent.Replace($SearchValue, $KeyValue.Value) > $null
+		}
+		
+		$NewContent = $SourceContent.ToString()
+		
+		try
+		{
+			Set-Content -Path $TargetPath -Value $NewContent > $null
+		}
+		catch
+		{
+			# If running while an environment is already active, Docker can hold the file open and cause Set-Content to fail
+			# We can delete the file and try again, and that will usually fix the problem
+			Remove-Item $TargetPath
+			
+			Set-Content -Path $TargetPath -Value $NewContent -Force > $null
+		}
+	}
+
 	switch ($Action.ToLowerInvariant())
 	{
 		"install" {
@@ -97,8 +131,10 @@ else
 					New-Item -Path $SystemdPath -ItemType Directory > $null
 				}
 
-				Copy-Item -Path "xosp-renew.service" -Destination $SystemdPath
-				Copy-Item -Path "xosp-renew.timer" -Destination $SystemdPath
+				$RenewParams = @{InstallPath=$PSScriptRoot; PwshPath=(Get-Command pwsh).Source}
+
+				Copy-WithReplace -SourcePath (Join-Path $ExtensionPath "LetsEncrypt" "xosp-renew.service") -TargetPath (Join-Path $SystemdPath "xosp-renew.service") -Replacements $RenewParams
+				Copy-WithReplace -SourcePath (Join-Path $ExtensionPath "LetsEncrypt" "xosp-renew.timer") -TargetPath (Join-Path $SystemdPath "xosp-renew.timer") -Replacements $RenewParams
 
 				& systemctl --user daemon-reload
 				& systemctl --user enable xosp-renew.timer

@@ -1,7 +1,12 @@
 #Requires -PSEDition Core -Version 7
 
 param(
-	[switch] $NoHeader
+	[Parameter(Position=0)]
+	[string] $TargetService,
+	[switch] $NoHeader,
+	[Parameter(ValueFromRemainingArguments=$true)]
+	[Alias("Args")]
+	[string[]] $Arguments
 )
 
 $TargetPath = Join-Path $PSScriptRoot "Docker"
@@ -39,9 +44,16 @@ foreach ($FileName in $Parameters.ComposeFiles)
 
 $RunArgs = @("run", "-it", "--rm", "--quiet-pull")
 
-if (-not $NoHeader)
+if ([String]::IsNullOrEmpty($TargetService))
 {
-	Write-Host "Control Terminal for the Plxtra XOSP distribution"
-}
+	if (-not $NoHeader)
+	{
+		Write-Host "Control Terminal for the Plxtra XOSP distribution"
+	}
 
-& docker @ComposeArgs @RunArgs control @args
+	& docker @ComposeArgs @RunArgs control @Arguments
+}
+else
+{
+	& docker @ComposeArgs @RunArgs --entrypoint bash $TargetService @Arguments
+}

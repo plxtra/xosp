@@ -2,7 +2,7 @@
 Description=Runs XOSP LetsEncrypt certificate renewal
 Wants=xosp-renew.timer
 [Service]
-ExecStart=/usr/local/bin/node /app/shoes-scraper/src/scraper --recent --platform shopify
-WorkingDirectory=/app/shoes-scraper
+ExecStart=${PwshPath} XOSP-Renew.ps1
+WorkingDirectory=${InstallPath}
 [Install]
 WantedBy=multi-user.target
