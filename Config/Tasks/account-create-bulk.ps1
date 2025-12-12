@@ -14,7 +14,7 @@ param (
 
 #########################################
 
-$AccountCodes = $StartFrom..($StartFrom + $Count - 1) | ForEach-Object -ThrottleLimit 4 -Parallel {
+$AccountCodes = ($Job = $StartFrom..($StartFrom + $Count - 1) | ForEach-Object -ThrottleLimit 4 -Parallel {
 	$AccountCode = $_.ToString($using:AccountTemplate)
 	$InvestorCode = $_.ToString($using:InvestorTemplate)
 	$AccountName = [String]::Format($using:NameTemplate, $AccountCode)
@@ -29,6 +29,9 @@ $AccountCodes = $StartFrom..($StartFrom + $Count - 1) | ForEach-Object -Throttle
 	
 	# We output the generated account identifiers, so the calling script can capture them for use
 	return "${using:OwnerCode}:${AccountCode}"
-}
+} -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait }
+Wait-Job $Job > $null
+FailJobWithError $Job "Failure creating Accounts"
+Remove-Job $Job
 
 $AccountCodes | Out-String -Stream

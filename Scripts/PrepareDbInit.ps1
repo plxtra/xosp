@@ -1,6 +1,6 @@
 #Requires -PSEDition Core -Version 7
 $RootPath = Split-Path (Get-Location)
-$SourcePath = Join-Path (Split-Path (Split-Path $RootPath)) "Projects"
+$SourcePath = Join-Path (Split-Path (Split-Path $RootPath)) "projects"
 $TargetPath = Join-Path $RootPath "Config" "Database"
 $ScriptPath = Join-Path $TargetPath "Scripts"
 

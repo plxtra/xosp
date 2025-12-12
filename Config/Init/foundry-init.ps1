@@ -11,24 +11,30 @@ param (
 
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"
 
+$Environment = "XOSP"
 $SourcePath = $PSScriptRoot
 $CurrenciesFile = Join-Path $SourcePath "currencies.csv"
 $Currencies = Import-Csv -Path $CurrenciesFile
 
 #########################################
 
-& dotnet $FoundryControl IdentitySource Define XOSP Auth "XOSP Auth Server" -Auth Jwt -Param Issuer $TokenService -Param Audience "Foundry$AuthSuffix-API" | Out-Null
+& dotnet $FoundryControl IdentitySource Define $Environment Auth "XOSP Auth Server" -Auth Jwt -Param Issuer $TokenService -Param Audience "Foundry$AuthSuffix-API" | Out-Null
+FailWithError "Failure defining Identity Source"
 
 Write-Host '.' -NoNewline
 
-& dotnet $FoundryControl Identity Define XOSP Auth "Client:Foundry$AuthSuffix`$Control" -Type System -Feature Admin -Feature Audit -Feature DefineSystem -Feature Define -Feature MaintainRecords -Feature SubmitRecords | Out-Null
+& dotnet $FoundryControl Identity Define $Environment Auth "Client:Foundry$AuthSuffix`$Control" -Type System -Feature Admin -Feature Audit -Feature DefineSystem -Feature Define -Feature MaintainRecords -Feature SubmitRecords | Out-Null
+FailWithError "Failure defining Control Tool Identity"
 
 Write-Host '.' -NoNewline
 
 # Exercise the REST API to configure the registry top-level systems
-$OperatorClassID = & dotnet $FoundryControl EntityClass DefineTopLevel XOSP "RegistryOperator" -Desc "Asset Registry Operator"
-$OperatorEntityID = & dotnet $FoundryControl Entity Define XOSP $OperatorClassID $OwnerCode -TopLevel -Desc $OwnerName
-& dotnet $FoundryControl Identity Define XOSP Auth "Client:Foundry$AuthSuffix`$Service" -Type Service -Feed Prodigy -Feed OMS -Entity $OperatorEntityID | Out-Null
+$OperatorClassID = & dotnet $FoundryControl EntityClass DefineTopLevel $Environment "RegistryOperator" -Desc "Asset Registry Operator"
+FailWithError "Failure defining Top Level"
+$OperatorEntityID = & dotnet $FoundryControl Entity Define $Environment $OperatorClassID $OwnerCode -TopLevel -Desc $OwnerName
+FailWithError "Failure defining Top Level Entity"
+& dotnet $FoundryControl Identity Define $Environment Auth "Client:Foundry$AuthSuffix`$Service" -Type Service -Feed Prodigy -Feed OMS -Entity $OperatorEntityID | Out-Null
+FailWithError "Failure defining Service Identity"
 
 Write-Host '.' -NoNewline
 
@@ -41,9 +47,10 @@ $RegistryClassID, $IssuerClassID, $InvestorClassID, $AccountClassID = ($Job = @(
 	@{Owner=$OperatorEntityID; Name="TradingAccount"; Desc="Investor Trading Account"; Meta=@{}}
 ) | ForEach-Object -Parallel {
 	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
-	& dotnet $using:FoundryControl EntityClass Define XOSP $_.Owner $_.Name -Desc $_.Desc @MetaParams
+	& dotnet $using:FoundryControl EntityClass Define $using:Environment $_.Owner $_.Name -Desc $_.Desc @MetaParams
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } # Do some juggling to ensure our results come out in order
 Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Entity Classes"
 Remove-Job $Job
 
 Write-Host '.' -NoNewline
@@ -53,51 +60,61 @@ $CurrencyClassID, $TokenClassID = ($Job = @(
 	@{Owner=$OperatorEntityID; Name="Currency";       Desc="Currency"},
 	@{Owner=$OperatorEntityID; Name="Token";          Desc="Security Token"}
 ) | ForEach-Object -Parallel {
-	& dotnet $using:FoundryControl AssetClass Define XOSP $_.Owner $_.Name -Desc $_.Desc
+	& dotnet $using:FoundryControl AssetClass Define $using:Environment $_.Owner $_.Name -Desc $_.Desc
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } # Do some juggling to ensure our results come out in order
 Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Asset Classes"
 Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define Entity Associations
-@(
+$Job = @(
 	@{Parent=$IssuerClassID;   Child=$OperatorClassID; Name="OperatorToIssuer";   Desc="Links Registry Operators and Issuers"},
 	@{Parent=$InvestorClassID; Child=$OperatorClassID; Name="OperatorToInvestor"; Desc="Links Registry Operators and Investors" },
 	@{Parent=$RegistryClassID; Child=$OperatorClassID; Name="OperatorToRegistry"; Desc="Links Registry Operators and Registries"},
 	@{Parent=$AccountClassID;  Child=$InvestorClassID; Name="InvestorToAccount";  Desc="Links Investors to Trading Accounts"}
 ) | ForEach-Object -Parallel {
-	& dotnet $using:FoundryControl EntityAssociation Define XOSP $_.Parent $_.Child $_.Name -Desc $_.Desc -Primary | Out-Null
-}
+	& dotnet $using:FoundryControl EntityAssociation Define $using:Environment $_.Parent $_.Child $_.Name -Desc $_.Desc -Primary | Out-Null
+} -AsJob
+Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Entity Associations"
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define Asset Associations
-@(
+$Job = @(
 	@{Parent=$CurrencyClassID; Child=$OperatorClassID; Name="OperatorToCurrency"; Desc="Links Registry Operators and Currencies";    Friend=$false},
 	@{Parent=$TokenClassID;    Child=$IssuerClassID;   Name="IssuerToToken";      Desc="Links Issuers and Security Tokens";          Friend=$false},
 	@{Parent=$TokenClassID;    Child=$RegistryClassID; Name="RegistryToToken";    Desc="Links Token Registries and Security Tokens"; Friend=$true} 
 ) | ForEach-Object -Parallel {
-	& dotnet $using:FoundryControl AssetAssociation Define XOSP $_.Parent $_.Child $_.Name -Desc $_.Desc ($_.Friend ? "-Friend" : "-Parent") | Out-Null
-}
+	& dotnet $using:FoundryControl AssetAssociation Define $using:Environment $_.Parent $_.Child $_.Name -Desc $_.Desc ($_.Friend ? "-Friend" : "-Parent") | Out-Null
+} -AsJob
+Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Asset Associations"
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define Asset Attributes
-@(
+$Job = @(
 	@{Parent=$CurrencyClassID; Type="String"; Name="CurrencyCode";    Desc="ISO Currency Code";                                        Meta=@{OmsPurpose="CurrencyCode"}},
 	@{Parent=$TokenClassID;    Type="String"; Name="Symbol";          Desc="Symbol Code";                                              Meta=@{}},
 	@{Parent=$TokenClassID;    Type="String"; Name="ISIN";            Desc="ISIN Instrument Identifier";                               Meta=@{}} 
 	@{Parent=$TokenClassID;    Type="String"; Name="PrimaryCurrency"; Desc="Primary currency for this Token, as an ISO Currency Code"; Meta=@{}} 
 ) | ForEach-Object -Parallel {
 	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
-	& dotnet $using:FoundryControl AssetAttribute Define XOSP $_.Parent $_.Type $_.Name -Desc $_.Desc @MetaParams | Out-Null
-}
+	& dotnet $using:FoundryControl AssetAttribute Define $using:Environment $_.Parent $_.Type $_.Name -Desc $_.Desc @MetaParams | Out-Null
+} -AsJob
+Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Asset Attributes"
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define Entity Attributes
-@(
+$Job = @(
 	@{Parent=$OperatorClassID; Type="String"; Name="OmsOwner";         Desc="The OMS EntityCode to match in Execution Reports for this Operator"},
 	@{Parent=$InvestorClassID; Type="String"; Name="Country";          Desc="Investor ISO Country Code"},
 	@{Parent=$InvestorClassID; Type="String"; Name="PIIHash";          Desc="Investor Personally Identifiable Information Hash"} 
@@ -106,21 +123,28 @@ Write-Host '.' -NoNewline
 	@{Parent=$RegistryClassID; Type="String"; Name="Registry";         Desc="Issuing Registry Code"},
 	@{Parent=$RegistryClassID; Type="String"; Name="FixExecutingFirm"; Desc="The Executing Firm to match in Execution Reports for this registry"} 
 ) | ForEach-Object -Parallel {
-	& dotnet $using:FoundryControl EntityAttribute Define XOSP $_.Parent $_.Type $_.Name -Desc $_.Desc | Out-Null
-}
+	& dotnet $using:FoundryControl EntityAttribute Define $using:Environment $_.Parent $_.Type $_.Name -Desc $_.Desc | Out-Null
+} -AsJob
+Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Entity Attributes"
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Define Currencies
 $Currencies.GetEnumerator() | ForEach-Object -Parallel {
-	$CurrencyID = & dotnet $using:FoundryControl Asset Define XOSP $using:CurrencyClassID $_.Code -Owner $using:OperatorEntityID -Desc $_.Name
-	& dotnet $using:FoundryControl Asset Set XOSP $CurrencyID -ByName CurrencyCode $_.Code | Out-Null
-}
+	$CurrencyID = & dotnet $using:FoundryControl Asset Define $using:Environment $using:CurrencyClassID $_.Code -Owner $using:OperatorEntityID -Desc $_.Name
+	& dotnet $using:FoundryControl Asset Set $using:Environment $CurrencyID -ByName CurrencyCode $_.Code | Out-Null
+} -AsJob
+Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Assets"
+Remove-Job $Job
 
 Write-Host '.' -NoNewline
 
 # Configure some top-level system attributes
-& dotnet $FoundryControl Entity Set XOSP $OperatorEntityID -ByName OmsOwner $OwnerCode | Out-Null
+& dotnet $FoundryControl Entity Set $Environment $OperatorEntityID -ByName OmsOwner $OwnerCode | Out-Null
+FailWithError "Failure setting Entity Attributes"
 
 Write-Host '.' -NoNewline
 
@@ -128,15 +152,16 @@ Write-Host '.' -NoNewline
 $Ledgers = @{}
 ($Job = @(
 	@{Parent=$OperatorEntityID; Class="Equity";    Name="TokenIssue";   Asset=$TokenClassID;    Entity=$IssuerClassID;   Desc="Security Token Issue";           Meta=@{OmsPurpose="Issues"}},
-	@{Parent=$OperatorEntityID; Class="Asset";     Name="Holdings";     Asset=$TokenClassID;    Entity=$AccountClassID;  Desc="Trading Account Token Holdings"; Meta=@{OmsPurpose="Balances"}},
-	@{Parent=$OperatorEntityID; Class="Asset";     Name="Balances";     Asset=$CurrencyClassID; Entity=$AccountClassID;  Desc="Trading Account Cash Balances";  Meta=@{OmsPurpose="Holdings"}} 
+	@{Parent=$OperatorEntityID; Class="Asset";     Name="Holdings";     Asset=$TokenClassID;    Entity=$AccountClassID;  Desc="Trading Account Token Holdings"; Meta=@{OmsPurpose="Holdings"}},
+	@{Parent=$OperatorEntityID; Class="Asset";     Name="Balances";     Asset=$CurrencyClassID; Entity=$AccountClassID;  Desc="Trading Account Cash Balances";  Meta=@{OmsPurpose="Balances"}},
 	@{Parent=$OperatorEntityID; Class="Liability"; Name="CashDeposits"; Asset=$CurrencyClassID; Entity=$OperatorClassID; Desc="Investor Cash Deposits";         Meta=@{OmsPurpose="Deposits"}} 
 ) | ForEach-Object -Parallel {
 	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
-	$LedgerID = & dotnet $using:FoundryControl Ledger Define XOSP $_.Parent $_.Class $_.Name -Asset $_.Asset -Entity $_.Entity -Desc $_.Desc @MetaParams
+	$LedgerID = & dotnet $using:FoundryControl Ledger Define $using:Environment $_.Parent $_.Class $_.Name -Asset $_.Asset -Entity $_.Entity -Desc $_.Desc @MetaParams
 	@{Key=$_.Name;Value=$LedgerID}
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } | ForEach-Object { $Ledgers.Add($_.Key, $_.Value) }
 Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Ledgers"
 Remove-Job $Job
 
 Write-Host '.' -NoNewline
@@ -154,10 +179,11 @@ $DataTypes = @{}
 	@{Owner=$OperatorEntityID; Class=$OperatorClassID; Type="JSON"; Name="ManualIssue";         Meta=@{}}
 ) | ForEach-Object -Parallel {
 	$MetaParams = $_.Meta.GetEnumerator() | Foreach-Object { @("-Meta", $_.Key, $_.Value)}
-	$DataTypeID = & dotnet $using:FoundryControl Type Define XOSP $_.Owner $_.Class $_.Type $_.Name @MetaParams
+	$DataTypeID = & dotnet $using:FoundryControl Type Define $using:Environment $_.Owner $_.Class $_.Type $_.Name @MetaParams
 	@{Key=$_.Name;Value=$DataTypeID}
 } -AsJob) | Select-Object -ExpandProperty ChildJobs | ForEach-Object { Receive-Job $_ -Wait } | ForEach-Object { $DataTypes.Add($_.Key, $_.Value) }
 Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Data Types"
 Remove-Job $Job
 
 Write-Host '.' -NoNewline
@@ -174,6 +200,10 @@ Write-Host '.' -NoNewline
 ) | ForEach-Object -Parallel {
 	$ExtraParams = $_.Ref.GetEnumerator() | ForEach-Object { @("-Ref", $_.Name, $_.Type, $_.ID)}
 	$ExtraParams += $_.Meta.GetEnumerator() | ForEach-Object { @("-Meta", $_.Key, $_.Value)}
-	& dotnet $using:FoundryControl Strategy Define XOSP $_.Parent $_.Type $_.Name @ExtraParams | Out-Null
-}
+	& dotnet $using:FoundryControl Strategy Define $using:Environment $_.Parent $_.Type $_.Name @ExtraParams | Out-Null
+} -AsJob
+Wait-Job $Job > $null
+FailJobWithError $Job "Failure defining Execution Strategies"
+Remove-Job $Job
+
 Write-Host '.'

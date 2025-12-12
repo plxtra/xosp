@@ -26,6 +26,7 @@ if (!(Test-Path "/tasks/task-params.json"))
 # Execute the shared tasks code
 . "/tasks/common.ps1"
 
+$Environment = "XOSP"
 $FoundryControl = "/app/foundry/Paritech.Foundry.Control.dll"
 $OmsControl = "/app/oms/Paritech.OMS2.Control.dll"
 
@@ -34,17 +35,22 @@ $OmsControl = "/app/oms/Paritech.OMS2.Control.dll"
 if ($UsingFoundry)
 {
 	# Foundry
-	$OwnerID = & dotnet $FoundryControl EntityClass Lookup XOSP $OwnerCode -TopLevel
+	$OwnerID = & dotnet $FoundryControl EntityClass Lookup $Environment $OwnerCode -TopLevel
+	FailWithError "Failed to lookup top-level Entity Class"
 
-	$InvestorClassID = & dotnet $FoundryControl EntityClass Lookup XOSP Investor -ByOwner $OwnerID
-
+	$InvestorClassID = & dotnet $FoundryControl EntityClass Lookup $Environment Investor -ByOwner $OwnerID
+	FailWithError "Failed to lookup Investor Entity Class"
+	
 	# Register/find the attached Investor
-	$InvestorID = & dotnet $FoundryControl Entity Define XOSP $InvestorClassID $InvestorCode -Desc $InvestorName -Owner $OwnerID
+	$InvestorID = & dotnet $FoundryControl Entity Define $Environment $InvestorClassID $InvestorCode -Desc $InvestorName -Owner $OwnerID
+	FailWithError "Failed to define Investor Entity ${AccountCode}"
 
-	$AccountClassID = & dotnet $FoundryControl EntityClass Lookup XOSP TradingAccount -ByOwner $OwnerID
+	$AccountClassID = & dotnet $FoundryControl EntityClass Lookup $Environment TradingAccount -ByOwner $OwnerID
+	FailWithError "Failed to lookup TradingAccount Entity Class"
 
 	# Register/find the attached Trading Account
-	& dotnet $FoundryControl Entity Define XOSP $AccountClassID $AccountCode -Desc $AccountName -Owner $InvestorID
+	& dotnet $FoundryControl Entity Define $Environment $AccountClassID $AccountCode -Desc $AccountName -Owner $InvestorID
+	FailWithError "Failed to define Trading Account Entity ${AccountCode}"
 	
 	# TODO: Attach Investor attributes
 	# Country
@@ -52,11 +58,11 @@ if ($UsingFoundry)
 	# FullName
 	
 
-	# & dotnet $FoundryControl Entity Set XOSP $InvestorID -ByName 
+	# & dotnet $FoundryControl Entity Set $Environment $InvestorID -ByName 
 }
 
 # Define Account Metadata with OMS
-& dotnet $OmsControl Account Define XOSP $OwnerCode $AccountCode -Name $AccountName -Currency $Currency
+& dotnet $OmsControl Account Define $Environment $OwnerCode $AccountCode -Name $AccountName -Currency $Currency
 FailWithError "Failed to define OMS metadata for Account ${OwnerCode}:${AccountCode}"
 
 foreach ($UserIdentity in $UserAssociations)

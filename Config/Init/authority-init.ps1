@@ -9,6 +9,7 @@ param (
 # Execute the shared tasks code
 . "/tasks/common.ps1"
 
+$Environment = "XOSP"
 $AuthorityControl = "/app/authority/Paritech.Authority.Control.dll"
 
 #########################################
@@ -19,20 +20,23 @@ $AssetTypes = Import-Csv -Path $AssetTypesFile
 
 foreach ($AssetType in $AssetTypes)
 {
-	& dotnet $AuthorityControl Type Define XOSP $AssetType.Code
+	& dotnet $AuthorityControl Type Define $Environment $AssetType.Code
+	FailWithError "Failure defining Asset Type $AssetType"
 }
 
 Write-Host '.' -NoNewline
 
 foreach ($ClientId in $ClientIds)
 {
-	& dotnet $AuthorityControl Asset Define XOSP Client $ClientId
+	& dotnet $AuthorityControl Asset Define $Environment Client $ClientId
+	FailWithError "Failure defining Client $ClientId"
 
 	Write-Host '.' -NoNewline
 	
 	if ($MarketAssociations.length -gt 0)
 	{
-		$MarketAssociations | ForEach-Object { @{ Type = "Market"; Code = $_ } } | ConvertTo-Csv | & dotnet $AuthorityControl Association Import XOSP Client $ClientId -StdIn -Format CSV
+		$MarketAssociations | ForEach-Object { @{ Type = "Market"; Code = $_ } } | ConvertTo-Csv | & dotnet $AuthorityControl Association Import $Environment Client $ClientId -StdIn -Format CSV
+		FailWithError "Failure importing market permissions for Client $ClientId"
 	}
 }
 

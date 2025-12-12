@@ -9,11 +9,29 @@ foreach ($Pair in $private:TaskParameters.GetEnumerator())
 #########################################
 # General methods
 
-function FailWithError([string] $Text)
+function FailWithError([string] $Text = $null)
 {
-	if ($global:LASTEXITCODE -lt 0)
+	if ($global:LASTEXITCODE -ne 0)
 	{
-		Read-Host -Prompt "$Text ($global:LASTEXITCODE)"
+		if ($null -ne $Text)
+		{
+			Write-Warning "$Text ($global:LASTEXITCODE)"
+		}
+
+		exit -1
+	}
+}
+
+function FailJobWithError([System.Management.Automation.Job] $Job, [string] $Text = $null)
+{
+	if ($Job.State -eq "Failed" -or ($Job.ChildJobs | Where-Object { $_.State -eq "Failed" }))
+	{
+		if ($null -ne $Text)
+		{
+			Write-Warning $Text
+		}
+		Remove-Job $Job
+
 		exit -1
 	}
 }
